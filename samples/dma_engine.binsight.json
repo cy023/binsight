@@ -1,0 +1,211 @@
+{
+  "id": "builtin-dma-engine",
+  "schemaVersion": "1.0",
+  "mode": "register-map",
+  "name": "DMA_ENGINE_IP",
+  "description": "4-Channel Scatter-Gather DMA Controller",
+  "endianness": "little",
+  "baseAddress": "0x40020000",
+  "registers": [
+    {
+      "name": "DMA_GLB_CTRL",
+      "offset": "0x00",
+      "size": 4,
+      "access": "RW",
+      "resetValue": "0x00000001",
+      "description": "Global DMA Enable & Arbitration",
+      "fields": [
+        {
+          "name": "GLB_EN",
+          "bits": "0:0",
+          "type": "enum",
+          "enums": {
+            "0": "DISABLED",
+            "1": "ENABLED"
+          },
+          "description": "Global Enable"
+        },
+        {
+          "name": "ARB_MODE",
+          "bits": "2:1",
+          "type": "enum",
+          "enums": {
+            "0": "FIXED_PRIORITY",
+            "1": "ROUND_ROBIN",
+            "2": "WEIGHTED_RR"
+          },
+          "description": "Arbitration Policy"
+        },
+        {
+          "name": "MAX_BURST",
+          "bits": "7:4",
+          "type": "uint",
+          "unit": "beats",
+          "description": "Max AXI burst beats"
+        },
+        {
+          "name": "RSVD",
+          "bits": "31:8",
+          "type": "hex",
+          "reserved": true,
+          "description": "Reserved"
+        }
+      ]
+    },
+    {
+      "name": "DMA_IRQ_BANK",
+      "offset": "0x04",
+      "size": 4,
+      "count": 2,
+      "stride": 4,
+      "access": "W1C",
+      "resetValue": "0x00000000",
+      "description": "Interrupt Status Bank Array",
+      "fields": [
+        {
+          "name": "DONE_IRQ_BITS",
+          "bits": "15:0",
+          "type": "hex",
+          "description": "Completion IRQ bitmap"
+        },
+        {
+          "name": "ERR_IRQ_BITS",
+          "bits": "31:16",
+          "type": "hex",
+          "description": "Bus error IRQ bitmap"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "CH",
+      "offset": "0x10",
+      "count": 4,
+      "stride": 16,
+      "description": "DMA Channel 0..3 Descriptor Group",
+      "registers": [
+        {
+          "name": "CFG",
+          "offset": "0x00",
+          "size": 4,
+          "access": "RW",
+          "resetValue": "0x00000000",
+          "description": "Channel Control & Transfer Length",
+          "fields": [
+            {
+              "name": "CH_EN",
+              "bits": "0:0",
+              "type": "enum",
+              "enums": {
+                "0": "OFF",
+                "1": "ACTIVE"
+              },
+              "description": "Channel Enable"
+            },
+            {
+              "name": "DIR",
+              "bits": "2:1",
+              "type": "enum",
+              "enums": {
+                "0": "MEM_TO_MEM",
+                "1": "MEM_TO_PERIPH",
+                "2": "PERIPH_TO_MEM"
+              },
+              "description": "Direction"
+            },
+            {
+              "name": "PRIORITY",
+              "bits": "5:3",
+              "type": "uint",
+              "description": "Priority (0..7)"
+            },
+            {
+              "name": "RSVD",
+              "bits": "15:6",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "XFER_BYTES",
+              "bits": "31:16",
+              "type": "uint",
+              "unit": "B",
+              "description": "Transfer length"
+            }
+          ]
+        },
+        {
+          "name": "SRC_ADDR",
+          "offset": "0x04",
+          "size": 4,
+          "access": "RW",
+          "resetValue": "0x00000000",
+          "description": "Source Physical Address",
+          "fields": [
+            {
+              "name": "SRC_PTR",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "32-bit Source Address"
+            }
+          ]
+        },
+        {
+          "name": "DST_ADDR",
+          "offset": "0x08",
+          "size": 4,
+          "access": "RW",
+          "resetValue": "0x00000000",
+          "description": "Destination Physical Address",
+          "fields": [
+            {
+              "name": "DST_PTR",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "32-bit Destination Address"
+            }
+          ]
+        },
+        {
+          "name": "STATUS",
+          "offset": "0x0C",
+          "size": 4,
+          "access": "RO",
+          "resetValue": "0x00000000",
+          "description": "Channel Runtime Status",
+          "fields": [
+            {
+              "name": "STATE",
+              "bits": "2:0",
+              "type": "enum",
+              "enums": {
+                "0": "IDLE",
+                "1": "FETCH_DESC",
+                "2": "TRANSFERRING",
+                "3": "DONE",
+                "7": "ABORT_ERR"
+              },
+              "description": "FSM State"
+            },
+            {
+              "name": "RSVD",
+              "bits": "15:3",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "REMAIN_BYTES",
+              "bits": "31:16",
+              "type": "uint",
+              "unit": "B",
+              "description": "Remaining bytes"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

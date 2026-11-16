@@ -1,0 +1,107 @@
+{
+  "id": "builtin-pcie-phy",
+  "schemaVersion": "1.0",
+  "mode": "register-map",
+  "name": "PCIE_PHY_IP",
+  "description": "High-Speed SERDES / PCIe Lane PHY Register Block",
+  "endianness": "little",
+  "baseAddress": "0x40010000",
+  "registers": [
+    {
+      "name": "PHY_LINK_CFG",
+      "offset": "0x00",
+      "size": 4,
+      "access": "RW",
+      "resetValue": "0xFA288009",
+      "description": "PHY Link Speed & Lane Configuration",
+      "fields": [
+        {
+          "name": "LANE_EN",
+          "bits": "0:0",
+          "type": "enum",
+          "description": "SERDES lane enable",
+          "enums": {
+            "0": "DISABLED",
+            "1": "ENABLED"
+          }
+        },
+        {
+          "name": "GEN_SPEED",
+          "bits": "3:1",
+          "type": "enum",
+          "description": "Target PCIe Gen Speed",
+          "enums": {
+            "1": "GEN1_2P5G",
+            "2": "GEN2_5G",
+            "3": "GEN3_8G",
+            "4": "GEN4_16G",
+            "5": "GEN5_32G"
+          }
+        },
+        {
+          "name": "LOOPBACK",
+          "bits": "5:4",
+          "type": "enum",
+          "description": "Loopback mode",
+          "enums": {
+            "0": "NONE",
+            "1": "NEAR_END_PCS",
+            "2": "FAR_END_PMA"
+          }
+        },
+        {
+          "name": "RSVD",
+          "bits": "7:6",
+          "type": "hex",
+          "reserved": true,
+          "description": "Reserved"
+        },
+        {
+          "name": "TX_SWING",
+          "bits": "15:8",
+          "type": "scaled",
+          "scale": 3.125,
+          "valueOffset": 400,
+          "unit": "mVpp",
+          "description": "TX swing voltage"
+        },
+        {
+          "name": "CDR_GAIN",
+          "bits": "23:16",
+          "type": "fixed",
+          "qFormat": "UQ4.4",
+          "description": "CDR loop gain (UQ4.4)"
+        },
+        {
+          "name": "DFE_TAP1",
+          "bits": "31:24",
+          "type": "int",
+          "unit": "tap",
+          "description": "Signed DFE Tap 1"
+        }
+      ]
+    },
+    {
+      "name": "PHY_ERR_CNT",
+      "offset": "0x04",
+      "size": 4,
+      "access": "W1C",
+      "resetValue": "0x00000000",
+      "description": "PHY Symbol & Framing Error Counter",
+      "fields": [
+        {
+          "name": "DISP_ERR_CNT",
+          "bits": "15:0",
+          "type": "uint",
+          "description": "Disparity error count"
+        },
+        {
+          "name": "SYM_ERR_CNT",
+          "bits": "31:16",
+          "type": "uint",
+          "description": "Symbol error count"
+        }
+      ]
+    }
+  ]
+}

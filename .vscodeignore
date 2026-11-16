@@ -1,0 +1,10 @@
+.vscode/**
+.agents/**
+.git/**
+.gitignore
+scripts/**
+samples/**
+architecture_plan.md
+SPECIFICATION.md
+DESIGN.md
+*.vsix

@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Binsight Register & Struct Schema (v1.1)",
+  "description": "Canonical JSON schema for Binsight IP register maps and binary structs (*.binsight.json)",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "default": "1.1"
+    },
+    "name": {
+      "type": "string",
+      "description": "IP Block or Struct name (e.g. PCIE_PHY, DMA_ENGINE)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of this IP block or struct"
+    },
+    "endianness": {
+      "type": "string",
+      "enum": ["little", "big"],
+      "default": "little",
+      "description": "Default byte order for registers in this schema"
+    },
+    "baseAddress": {
+      "oneOf": [{ "type": "string" }, { "type": "number" }],
+      "default": "0x00000000",
+      "description": "Default hardware physical base address for display (e.g. '0x40010000')"
+    },
+    "registers": {
+      "type": "array",
+      "description": "List of registers or struct words relative to the segment start offset",
+      "items": {
+        "$ref": "#/definitions/registerItem"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "description": "Repeating struct blocks or register channel groups (e.g. DMA channels 0..N)",
+      "items": {
+        "type": "object",
+        "required": ["name", "offset", "registers"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Group / struct array base name (e.g. 'CH' -> CH[0], CH[1])"
+          },
+          "offset": {
+            "oneOf": [{ "type": "string" }, { "type": "number" }],
+            "description": "Starting byte offset of group instance 0 relative to segment start"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1,
+            "description": "Number of repeated group instances"
+          },
+          "stride": {
+            "oneOf": [{ "type": "string" }, { "type": "number" }],
+            "description": "Byte stride between consecutive group instances"
+          },
+          "description": {
+            "type": "string"
+          },
+          "registers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/registerItem"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "registerItem": {
+      "type": "object",
+      "required": ["name", "offset", "size"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Register or struct member name"
+        },
+        "offset": {
+          "oneOf": [{ "type": "string" }, { "type": "number" }],
+          "description": "Byte offset relative to the segment (or group) start offset"
+        },
+        "size": {
+          "type": "integer",
+          "enum": [1, 2, 4, 8],
+          "default": 4,
+          "description": "Register byte width (1=8-bit, 2=16-bit, 4=32-bit, 8=64-bit)"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Optional array count if this single register repeats"
+        },
+        "stride": {
+          "oneOf": [{ "type": "string" }, { "type": "number" }],
+          "description": "Byte stride between array elements (defaults to size)"
+        },
+        "access": {
+          "type": "string",
+          "enum": ["RW", "RO", "WO", "W1C", "RC"],
+          "default": "RW"
+        },
+        "resetValue": {
+          "oneOf": [{ "type": "string" }, { "type": "number" }],
+          "description": "Optional default/reset value (e.g. '0x00000001')"
+        },
+        "description": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "bits"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "bits": {
+                "type": "string",
+                "pattern": "^\\d+(:\\d+)?$"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["uint", "int", "hex", "bin", "float", "fixed", "scaled", "ascii", "enum"],
+                "default": "uint"
+              },
+              "reserved": {
+                "type": "boolean",
+                "default": false,
+                "description": "Mark true if this bitfield is reserved (RSVD) so UI can filter it out"
+              },
+              "scale": {
+                "type": "number"
+              },
+              "valueOffset": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "qFormat": {
+                "type": "string",
+                "pattern": "^U?Q\\d+\\.\\d+$"
+              },
+              "description": {
+                "type": "string"
+              },
+              "enums": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

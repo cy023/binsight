@@ -1,0 +1,96 @@
+{
+  "id": "builtin-sensor-be",
+  "schemaVersion": "1.0",
+  "mode": "register-map",
+  "name": "SENSOR_TELEMETRY_BE",
+  "description": "Big-Endian IMU & Environmental Sensor Packet Struct",
+  "endianness": "big",
+  "baseAddress": "0x80000000",
+  "registers": [
+    {
+      "name": "PKT_HEADER",
+      "offset": "0x00",
+      "size": 4,
+      "access": "RO",
+      "resetValue": "0x53454E53",
+      "description": "4-Byte ASCII Signature (\"SENS\")",
+      "fields": [
+        {
+          "name": "MAGIC_TAG",
+          "bits": "31:0",
+          "type": "ascii",
+          "description": "ASCII Packet Identifier"
+        }
+      ]
+    },
+    {
+      "name": "GYRO_CALIB_XY",
+      "offset": "0x04",
+      "size": 4,
+      "access": "RW",
+      "resetValue": "0x00000000",
+      "description": "Signed 16-bit Gyroscope Offset",
+      "fields": [
+        {
+          "name": "GYRO_OFFSET_X",
+          "bits": "31:16",
+          "type": "int",
+          "scale": 0.05,
+          "unit": "dps",
+          "description": "X-axis offset"
+        },
+        {
+          "name": "GYRO_OFFSET_Y",
+          "bits": "15:0",
+          "type": "int",
+          "scale": 0.05,
+          "unit": "dps",
+          "description": "Y-axis offset"
+        }
+      ]
+    },
+    {
+      "name": "ACCEL_GAIN_TEMP",
+      "offset": "0x08",
+      "size": 4,
+      "access": "RO",
+      "resetValue": "0x10000410",
+      "description": "Fixed-Point Gain (UQ4.12) & Temperature",
+      "fields": [
+        {
+          "name": "ACCEL_SCALE_GAIN",
+          "bits": "31:16",
+          "type": "fixed",
+          "qFormat": "UQ4.12",
+          "description": "UQ4.12 gain"
+        },
+        {
+          "name": "BOARD_TEMP",
+          "bits": "15:0",
+          "type": "scaled",
+          "scale": 0.0625,
+          "valueOffset": -40,
+          "unit": "°C",
+          "description": "Board temperature"
+        }
+      ]
+    },
+    {
+      "name": "SUPPLY_VREF_F32",
+      "offset": "0x0C",
+      "size": 4,
+      "access": "RO",
+      "resetValue": "0x40533333",
+      "description": "Supply Voltage (IEEE-754 Float32)",
+      "fields": [
+        {
+          "name": "VDD_VOLTS",
+          "bits": "31:0",
+          "type": "float",
+          "unit": "V",
+          "description": "Analog supply rail"
+        }
+      ]
+    }
+  ]
+}

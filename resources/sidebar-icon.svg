@@ -1,0 +1,8 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hacker-style terminal hex brackets [0x] with bit-grid crosshair -->
+  <path d="M7 3H4C3.44772 3 3 3.44772 3 4V20C3 20.5523 3.44772 21 4 21H7" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+  <path d="M17 3H20C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H17" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+  <rect x="7.5" y="7.5" width="4" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+  <path d="M13.5 9.5L16.5 14.5M16.5 9.5L13.5 14.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="9.5" cy="12" r="0.9" fill="currentColor"/>
+</svg>

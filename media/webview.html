@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{CSP_SOURCE}} 'unsafe-inline'; script-src 'nonce-{{NONCE}}';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="{{STYLE_URI}}" rel="stylesheet">
+  <title>Binsight - {{TITLE_FILE_NAME}}</title>
+</head>
+<body>
+  <header class="hud-bar">
+    <div class="hud-left">
+      <nav class="hud-tabs">
+        <button class="tab-btn active" data-tab="tab-segments">Register Map</button>
+        <button class="tab-btn" data-tab="tab-struct-list">Struct List</button>
+        <button class="tab-btn" data-tab="tab-repeat-struct">Repeat Struct</button>
+        <button class="tab-btn" data-tab="tab-protocol">Protocol Diagram</button>
+        <button class="tab-btn" data-tab="tab-hex">Hex Dump</button>
+      </nav>
+      <div class="hud-target" title="{{FILE_PATH}}">
+        <strong id="file-name">{{FILE_NAME}}</strong>
+        <span class="hud-chip">{{FORMATTED_SIZE}}</span>
+        <span class="hud-chip hidden" id="baseline-chip"></span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <span class="hud-status" id="pill-mode-status">Read-Only</span>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- Tab 1: Multi-Segment Register Workbench -->
+    <section id="tab-segments" class="tab-panel active">
+      <div class="cmd-strip">
+        <div class="cmd-group">
+          <button id="btn-add-segment" class="btn btn-primary">+ Segment</button>
+
+          <div class="cmd-select-box">
+            <select id="layout-select" title="Apply a multi-segment Layout Profile">
+              <option value="">Layout Profile...</option>
+            </select>
+            <button id="btn-load-layout-file" class="btn" title="Open *.binsight-layout.json from disk">Open</button>
+            <button id="btn-save-layout-file" class="btn" title="Save current segments to *.binsight-layout.json">Save</button>
+          </div>
+
+          <button id="btn-compare-baseline" class="btn" title="Compare against a Golden / Baseline .bin file">Compare .bin</button>
+          <button id="btn-clear-baseline" class="btn btn-alert hidden" title="Clear Baseline Diff">✕ Clear Diff</button>
+        </div>
+
+        <div class="cmd-group">
+          <input id="reg-search" type="text" placeholder="Filter register, field, or 0x..." class="search-input" />
+
+          <select id="diff-filter-select" title="Filter registers">
+            <option value="all">All Registers</option>
+            <option value="non-reset">≠ Reset Only</option>
+            <option value="diff-baseline">≠ Baseline Only</option>
+          </select>
+
+          <label class="hud-toggle" title="Hide reserved (RSVD) bitfields">
+            <input type="checkbox" id="chk-hide-reserved" checked />
+            <span>Hide RSVD</span>
+          </label>
+
+          <label class="hud-toggle" title="Toggle 32-bit bit ruler">
+            <input type="checkbox" id="chk-show-bitgrid" checked />
+            <span>Bit Grid</span>
+          </label>
+
+          <label class="hud-toggle warn-toggle" title="Enable editing to toggle bits and save modified binary">
+            <input type="checkbox" id="chk-edit-mode" />
+            <span>Edit Mode</span>
+          </label>
+
+          <button id="btn-reset-all" class="btn hidden">Revert</button>
+          <button id="btn-save-as-bin" class="btn btn-primary hidden">Save .bin</button>
+          <button id="btn-export-report" class="btn" title="Export decoded register report (.txt)">Export .txt</button>
+        </div>
+      </div>
+
+      <!-- Quick Segment Nav Bar -->
+      <div id="segment-nav-bar" class="segment-nav-bar"></div>
+
+      <!-- Active Segments Container -->
+      <div id="segments-container" class="segments-container"></div>
+    </section>
+
+    <!-- Tab 2: Struct List Mode -->
+    <section id="tab-struct-list" class="tab-panel">
+      <div class="cmd-strip">
+        <div class="cmd-group">
+          <label>Schema:</label>
+          <select id="sl-schema-select" style="max-width:260px;"></select>
+          <label>Offset:</label>
+          <input id="sl-offset-input" type="text" value="0x0000" style="width:88px;" />
+          <select id="sl-endian-select">
+            <option value="little">LE</option>
+            <option value="big">BE</option>
+          </select>
+          <button id="sl-edit-json-btn" class="btn">Edit JSON</button>
+        </div>
+        <div class="cmd-group">
+          <input id="sl-search" type="text" placeholder="Filter struct members..." class="search-input" />
+        </div>
+      </div>
+      <div id="sl-container" class="term-box"></div>
+    </section>
+
+    <!-- Tab 3: Repeat Struct List Mode (64MB-capable, Paged + Block Padding) -->
+    <section id="tab-repeat-struct" class="tab-panel">
+      <div class="cmd-strip">
+        <div class="cmd-group">
+          <label>Schema:</label>
+          <select id="rs-schema-select" style="max-width:250px;"></select>
+          <label>Start Offset:</label>
+          <input id="rs-offset-input" type="text" value="0x0000" style="width:84px;" />
+          <label>Type:</label>
+          <select id="rs-type-filter">
+            <option value="all">All Types</option>
+          </select>
+          <label class="hud-toggle" title="Skip unused/empty entries (e.g. 0xFF)">
+            <input type="checkbox" id="rs-hide-skipped" checked />
+            <span>Hide Empty/Skip</span>
+          </label>
+          <button id="rs-edit-json-btn" class="btn">Edit JSON</button>
+        </div>
+        <div class="cmd-group">
+          <span id="rs-geometry-badge" class="hud-chip"></span>
+          <label>Block #:</label>
+          <input id="rs-block-input" type="text" placeholder="All" style="width:64px;" />
+          <button id="rs-prev-page" class="btn">◀ Prev</button>
+          <span id="rs-page-info" class="file-off-sub">Page 1 / 1</span>
+          <button id="rs-next-page" class="btn">Next ▶</button>
+        </div>
+      </div>
+      <div class="repeat-layout">
+        <div id="rs-table-wrap" class="term-box repeat-table-pane"></div>
+        <div id="rs-resizer" class="split-resizer" title="Drag to resize panes"></div>
+        <div id="rs-detail-wrap" class="term-box repeat-detail-pane">
+          <div class="term-box-hdr">Entry Details</div>
+          <p class="hint">Select an entry row to inspect all decoded fields.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: Communication Protocol Diagram Mode (e.g. UFS UPIU) -->
+    <section id="tab-protocol" class="tab-panel">
+      <div class="cmd-strip">
+        <div class="cmd-group">
+          <select id="proto-schema-select" style="max-width:210px;" title="Protocol Schema"></select>
+          <label>Offset:</label>
+          <input id="proto-offset-input" type="text" value="0x0000" style="width:74px;" />
+          <select id="proto-type-filter">
+            <option value="all">All Types</option>
+          </select>
+          <label>Entry #:</label>
+          <div class="cmd-select-box">
+            <button id="proto-prev-entry" class="btn" title="Previous Entry">◀</button>
+            <input id="proto-entry-input" type="text" value="0" style="width:52px;text-align:center;" title="Jump to Entry index (0..N)" />
+            <button id="proto-next-entry" class="btn" title="Next Entry">▶</button>
+          </div>
+          <label>Size:</label>
+          <select id="proto-size-select" title="Adjust diagram table size">
+            <option value="compact" selected>Compact (S)</option>
+            <option value="normal">Medium (M)</option>
+            <option value="large">Large (L)</option>
+          </select>
+          <label class="hud-toggle" title="Hide Reserved fields in diagram">
+            <input type="checkbox" id="proto-hide-rsvd" />
+            <span>Hide RSVD</span>
+          </label>
+          <label class="hud-toggle" title="Show decoded fields table below diagram">
+            <input type="checkbox" id="proto-show-details" checked />
+            <span>Fields</span>
+          </label>
+          <button id="proto-edit-json-btn" class="btn">Edit JSON</button>
+        </div>
+        <div class="cmd-group">
+          <span id="proto-pkt-count" class="hud-chip">0 Entries</span>
+          <button id="proto-prev-page" class="btn">◀ Page</button>
+          <span id="proto-page-info" class="file-off-sub">1 / 1</span>
+          <button id="proto-next-page" class="btn">Page ▶</button>
+        </div>
+      </div>
+      <div class="proto-layout">
+        <div id="proto-list-wrap" class="term-box proto-list-pane"></div>
+        <div id="proto-resizer" class="split-resizer" title="Drag to resize panes"></div>
+        <div id="proto-diagram-wrap" class="term-box proto-diagram-pane size-compact"></div>
+      </div>
+    </section>
+
+    <!-- Tab 5: Paged Hex Viewer & File Hashes -->
+    <section id="tab-hex" class="tab-panel">
+      <div class="hex-Layout">
+        <div class="hex-main term-box">
+          <div class="hex-toolbar">
+            <div class="cmd-group">
+              <button id="btn-prev-page" class="btn">◀ Prev 4KB</button>
+              <span id="page-indicator" class="hud-mono">0x00000000</span>
+              <button id="btn-next-page" class="btn">Next 4KB ▶</button>
+            </div>
+            <div class="cmd-group">
+              <input id="jump-input" type="text" placeholder="Offset (0x100)" style="width:110px;" />
+              <button id="btn-jump" class="btn">Go</button>
+            </div>
+          </div>
+
+          <div class="hex-table-header">
+            <span class="col-offset">OFFSET</span>
+            <span class="col-hex">00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F</span>
+            <span class="col-ascii">ASCII</span>
+          </div>
+          <div id="hex-rows" class="hex-rows"></div>
+        </div>
+
+        <aside class="hex-sidebar">
+          <div class="term-box">
+            <div class="term-box-hdr">Data Inspector</div>
+            <p class="hint" id="inspector-offset">Offset: 0x00000000</p>
+            <table class="kv-table" id="inspector-table"></table>
+          </div>
+          <div class="term-box">
+            <div class="term-box-hdr">File Hashes</div>
+            <div id="hash-box"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script nonce="{{NONCE}}">
+    window.__BINSIGHT_DATA__ = {{SERIALIZED_REPORT}};
+  </script>
+  {{SCRIPTS}}
+</body>
+</html>

@@ -1,0 +1,122 @@
+{
+  "name": "binsight",
+  "displayName": "Binsight - Hardware Register & Binary Inspector",
+  "description": "Offline Multi-Segment Hardware Register, Struct, and Bitfield Binary Inspector for VS Code.",
+  "version": "0.1.0",
+  "publisher": "local-dev",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "register",
+    "bitfield",
+    "struct",
+    "binary",
+    "hex",
+    "inspector",
+    "offline"
+  ],
+  "activationEvents": [
+    "onCommand:binsight.inspectFile",
+    "onCommand:binsight.inspectActiveFile",
+    "onCustomEditor:binsight.binaryPreview"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "binsight.inspectFile",
+        "title": "Inspect Register / Binary File",
+        "category": "Binsight"
+      },
+      {
+        "command": "binsight.inspectActiveFile",
+        "title": "Inspect Active File",
+        "category": "Binsight"
+      },
+      {
+        "command": "binsight.refreshSidebar",
+        "title": "Refresh Binsight Explorer",
+        "category": "Binsight",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "binsight-explorer",
+          "title": "Binsight",
+          "icon": "resources/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "binsight-explorer": [
+        {
+          "id": "binsight.sidebarView",
+          "name": "Binsight Workspace"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "binsight.binaryPreview",
+        "displayName": "Binsight Register & Binary Inspector",
+        "selector": [
+          {
+            "filenamePattern": "*.bin"
+          },
+          {
+            "filenamePattern": "*.raw"
+          },
+          {
+            "filenamePattern": "*.dat"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "binsight.refreshSidebar",
+          "when": "view == binsight.sidebarView",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "binsight.inspectFile",
+          "group": "navigation@10"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "binsight.inspectFile",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": "*.binsight.json",
+        "url": "./schemas/binsight-regmap.schema.json"
+      },
+      {
+        "fileMatch": "*.binsight-layout.json",
+        "url": "./schemas/binsight-layout.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "package": "vsce package",
+    "package:offline": "python3 scripts/package-vsix.py",
+    "install:offline": "NODE_OPTIONS=--no-deprecation code --install-extension binsight-0.1.0.vsix --force"
+  }
+}

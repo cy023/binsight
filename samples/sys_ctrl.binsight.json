@@ -1,0 +1,147 @@
+{
+  "id": "builtin-sys-ctrl",
+  "schemaVersion": "1.0",
+  "mode": "register-map",
+  "name": "SYS_CTRL_IP",
+  "description": "System Control, Clocking & Thermal Sensor IP Block",
+  "endianness": "little",
+  "baseAddress": "0x40000000",
+  "registers": [
+    {
+      "name": "SYS_CTRL",
+      "offset": "0x00",
+      "size": 4,
+      "access": "RW",
+      "resetValue": "0x00180533",
+      "description": "System Master Control Register",
+      "fields": [
+        {
+          "name": "EN",
+          "bits": "0:0",
+          "type": "enum",
+          "description": "Module global enable",
+          "enums": {
+            "0": "DISABLE",
+            "1": "ENABLE"
+          }
+        },
+        {
+          "name": "OP_MODE",
+          "bits": "3:1",
+          "type": "enum",
+          "description": "Operating power mode",
+          "enums": {
+            "0": "IDLE",
+            "1": "NORMAL",
+            "2": "LOW_POWER",
+            "3": "DIAGNOSTIC",
+            "7": "BYPASS"
+          }
+        },
+        {
+          "name": "CLK_DIV",
+          "bits": "7:4",
+          "type": "uint",
+          "scale": 1,
+          "valueOffset": 1,
+          "unit": "x",
+          "description": "Clock divider ratio",
+          "enums": {
+            "0": "DIV_1",
+            "1": "DIV_2",
+            "3": "DIV_4",
+            "7": "DIV_8",
+            "15": "DIV_16"
+          }
+        },
+        {
+          "name": "IRQ_MASK",
+          "bits": "15:8",
+          "type": "hex",
+          "description": "Interrupt mask bitfield"
+        },
+        {
+          "name": "PLL_MUL",
+          "bits": "23:16",
+          "type": "scaled",
+          "scale": 25,
+          "valueOffset": 0,
+          "unit": "MHz",
+          "description": "PLL frequency multiplier"
+        },
+        {
+          "name": "RSVD",
+          "bits": "30:24",
+          "type": "hex",
+          "reserved": true,
+          "description": "Reserved bits"
+        },
+        {
+          "name": "SOFT_RST",
+          "bits": "31:31",
+          "type": "enum",
+          "description": "Software reset trigger",
+          "enums": {
+            "0": "NORMAL",
+            "1": "ASSERT_RESET"
+          }
+        }
+      ]
+    },
+    {
+      "name": "SYS_STATUS",
+      "offset": "0x04",
+      "size": 4,
+      "access": "RO",
+      "resetValue": "0x0410FC43",
+      "description": "System Status & Thermal Telemetry Register",
+      "fields": [
+        {
+          "name": "READY",
+          "bits": "0:0",
+          "type": "enum",
+          "description": "Hardware ready flag",
+          "enums": {
+            "0": "NOT_READY",
+            "1": "READY"
+          }
+        },
+        {
+          "name": "PLL_LOCK",
+          "bits": "1:1",
+          "type": "enum",
+          "description": "PLL lock indicator",
+          "enums": {
+            "0": "UNLOCKED",
+            "1": "LOCKED"
+          }
+        },
+        {
+          "name": "FIFO_LVL",
+          "bits": "7:2",
+          "type": "uint",
+          "unit": "entries",
+          "description": "Command FIFO occupancy"
+        },
+        {
+          "name": "TEMP_OFFSET_CAL",
+          "bits": "15:8",
+          "type": "int",
+          "scale": 0.5,
+          "valueOffset": 0,
+          "unit": "°C",
+          "description": "Signed calibration offset"
+        },
+        {
+          "name": "DIE_TEMP",
+          "bits": "31:16",
+          "type": "scaled",
+          "scale": 0.0625,
+          "valueOffset": -40,
+          "unit": "°C",
+          "description": "Die temperature reading"
+        }
+      ]
+    }
+  ]
+}

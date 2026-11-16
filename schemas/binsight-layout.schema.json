@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Binsight Multi-Segment Layout Profile (v1.1)",
+  "description": "Configuration profile mapping multiple non-contiguous binary offsets to *.binsight.json schemas and Hardware Base Addresses",
+  "type": "object",
+  "required": ["name", "segments"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "startOffset", "schema"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Instance label (e.g. PCIe_PHY0, PCIe_PHY1, DMA_ENGINE)"
+          },
+          "startOffset": {
+            "oneOf": [{ "type": "string" }, { "type": "number" }],
+            "description": "Byte offset in the binary file where this segment begins (e.g. '0x0100')"
+          },
+          "hwBaseAddress": {
+            "oneOf": [{ "type": "string" }, { "type": "number" }],
+            "description": "Hardware physical base address for this segment (e.g. '0x40010000')"
+          },
+          "schema": {
+            "type": "string",
+            "description": "Relative or absolute file path (or built-in ID) of the *.binsight.json schema"
+          },
+          "endianness": {
+            "type": "string",
+            "enum": ["little", "big"]
+          }
+        }
+      }
+    }
+  }
+}

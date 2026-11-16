@@ -1,0 +1,158 @@
+{
+  "id": "builtin-pmic-regs",
+  "schemaVersion": "1.0",
+  "mode": "register-map",
+  "name": "PMIC_BUCK_MAP",
+  "description": "8-bit I2C Power Management IC Register Map",
+  "endianness": "little",
+  "baseAddress": "0x00000200",
+  "registers": [
+    {
+      "name": "PMIC_CHIP_ID",
+      "offset": "0x00",
+      "size": 1,
+      "access": "RO",
+      "resetValue": "0xA5",
+      "description": "8-bit Silicon Revision & Vendor ID",
+      "fields": [
+        {
+          "name": "REV_ID",
+          "bits": "3:0",
+          "type": "hex",
+          "description": "Minor revision"
+        },
+        {
+          "name": "VENDOR_ID",
+          "bits": "7:4",
+          "type": "hex",
+          "description": "Vendor ID"
+        }
+      ]
+    },
+    {
+      "name": "PMIC_IRQ_FLAGS",
+      "offset": "0x01",
+      "size": 1,
+      "access": "W1C",
+      "resetValue": "0x00",
+      "description": "8-bit PMIC Fault Flags",
+      "fields": [
+        {
+          "name": "UVLO_FAULT",
+          "bits": "0:0",
+          "type": "enum",
+          "enums": {
+            "0": "OK",
+            "1": "UNDER_VOLTAGE"
+          },
+          "description": "UVLO flag"
+        },
+        {
+          "name": "OVP_FAULT",
+          "bits": "1:1",
+          "type": "enum",
+          "enums": {
+            "0": "OK",
+            "1": "OVER_VOLTAGE"
+          },
+          "description": "OVP flag"
+        },
+        {
+          "name": "OT_SHUTDOWN",
+          "bits": "2:2",
+          "type": "enum",
+          "enums": {
+            "0": "NORMAL",
+            "1": "THERMAL_TRIP"
+          },
+          "description": "Thermal shutdown"
+        },
+        {
+          "name": "RSVD",
+          "bits": "7:3",
+          "type": "hex",
+          "reserved": true,
+          "description": "Reserved"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "BUCK",
+      "offset": "0x02",
+      "count": 4,
+      "stride": 2,
+      "description": "Buck Converter Rails 0..3",
+      "registers": [
+        {
+          "name": "CTRL",
+          "offset": "0x00",
+          "size": 1,
+          "access": "RW",
+          "resetValue": "0x01",
+          "description": "Buck Rail Enable & Mode",
+          "fields": [
+            {
+              "name": "RAIL_EN",
+              "bits": "0:0",
+              "type": "enum",
+              "enums": {
+                "0": "OFF",
+                "1": "ON"
+              },
+              "description": "Rail enable"
+            },
+            {
+              "name": "PWM_MODE",
+              "bits": "2:1",
+              "type": "enum",
+              "enums": {
+                "0": "AUTO_PFM_PWM",
+                "1": "FORCED_PWM",
+                "2": "LOW_POWER_LDO"
+              },
+              "description": "Switching mode"
+            },
+            {
+              "name": "RSVD",
+              "bits": "7:3",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "name": "VOUT_DAC",
+          "offset": "0x01",
+          "size": 1,
+          "access": "RW",
+          "resetValue": "0x32",
+          "description": "Output Voltage DAC Target",
+          "fields": [
+            {
+              "name": "VSET",
+              "bits": "6:0",
+              "type": "scaled",
+              "scale": 10,
+              "valueOffset": 500,
+              "unit": "mV",
+              "description": "Target voltage"
+            },
+            {
+              "name": "PGOOD",
+              "bits": "7:7",
+              "type": "enum",
+              "enums": {
+                "0": "REGULATING",
+                "1": "POWER_GOOD"
+              },
+              "description": "Power-good status"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
