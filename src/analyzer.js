@@ -1,15 +1,99 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const {
-  getBuiltinSchemas,
-  parseBinsightSchema,
-  parseLayoutProfile
-} = require('./registerParser');
-const { evaluateEntryRules } = require('./rules');
+const {getBuiltinSchemas, parseBinsightSchema, parseLayoutProfile} = require('./registerParser');
+const {evaluateEntryRules} = require('./rules');
 
-const MAX_HASH_SIZE = 64 * 1024 * 1024; // 64 MB threshold for automatic full-file hashing
-const DEFAULT_HEX_PAGE_SIZE = 4096;     // 4 KB per page in Hex viewer
+const MAX_HASH_SIZE = 64 * 1024 * 1024;  // 64 MB threshold for automatic full-file hashing
+const DEFAULT_HEX_PAGE_SIZE = 4096;      // 4 KB per page in Hex viewer
+const decodedHexCache = new Map();
+
+/**
+ * Parse Intel HEX or free-form text hex into a raw Buffer.
+ */
+function parseTextHexToBuffer(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const trimmedNonEmpty = lines.map((l) => l.trim()).filter(Boolean);
+  const isIntelHex = trimmedNonEmpty.length > 0 && trimmedNonEmpty.every((l) => /^:[0-9a-fA-F]{10,}$/.test(l));
+
+  if (isIntelHex) {
+    let baseAddr = 0;
+    const chunks = [];
+    let maxEnd = 0;
+    for (const line of trimmedNonEmpty) {
+      const byteCount = parseInt(line.slice(1, 3), 16);
+      const addr = parseInt(line.slice(3, 7), 16);
+      const recType = parseInt(line.slice(7, 9), 16);
+      if (recType === 0x00) {
+        const data = Buffer.from(line.slice(9, 9 + byteCount * 2), 'hex');
+        const abs = baseAddr + addr;
+        chunks.push({offset: abs, data});
+        if (abs + data.length > maxEnd) maxEnd = abs + data.length;
+      } else if (recType === 0x01) {
+        break;
+      } else if (recType === 0x02) {
+        baseAddr = parseInt(line.slice(9, 13), 16) << 4;
+      } else if (recType === 0x04) {
+        baseAddr = parseInt(line.slice(9, 13), 16) << 16;
+      }
+    }
+    const out = Buffer.alloc(maxEnd, 0xff);
+    for (const c of chunks) c.data.copy(out, c.offset);
+    return out;
+  }
+
+  const bytes = [];
+  for (const rawLine of lines) {
+    let line = rawLine.replace(/(\/\/|#).*$/, '').trim();
+    if (!line) continue;
+    line = line.replace(/^(?:0x)?[0-9a-fA-F]{4,8}\s*:\s*/, '');
+    const tokens = line.match(/(?:0x[0-9a-fA-F]{1,2}|[0-9a-fA-F]+)/g);
+    if (!tokens) continue;
+    for (const tok of tokens) {
+      if (tok.toLowerCase().startsWith('0x')) {
+        bytes.push(parseInt(tok.slice(2), 16) & 0xff);
+      } else if (tok.length <= 2) {
+        bytes.push(parseInt(tok, 16) & 0xff);
+      } else {
+        const padded = tok.length % 2 === 1 ? '0' + tok : tok;
+        for (let i = 0; i < padded.length; i += 2) {
+          bytes.push(parseInt(padded.slice(i, i + 2), 16) & 0xff);
+        }
+      }
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+/**
+ * If filePath is a text hex file (.hex / .txt hex dump), decode it to a cached temp binary path.
+ * Otherwise return filePath as-is.
+ */
+function resolveBinaryPath(filePath) {
+  if (!filePath) return filePath;
+  const lower = filePath.toLowerCase();
+  const isHexExt = lower.endsWith('.hex') || lower.endsWith('.txt');
+  if (!isHexExt) return filePath;
+
+  const stats = fs.statSync(filePath);
+  const cached = decodedHexCache.get(filePath);
+  if (cached && cached.mtimeMs === stats.mtimeMs && fs.existsSync(cached.tempPath)) {
+    return cached.tempPath;
+  }
+
+  const text = fs.readFileSync(filePath, 'utf8');
+  if (lower.endsWith('.txt') && /[\x00-\x08\x0e-\x1f]/.test(text.slice(0, 512))) {
+    return filePath;
+  }
+
+  const buf = parseTextHexToBuffer(text);
+  const key = crypto.createHash('sha1').update(path.resolve(filePath)).digest('hex').slice(0, 12);
+  const tempPath = path.join(os.tmpdir(), `binsight-hex-${key}.bin`);
+  fs.writeFileSync(tempPath, buf);
+  decodedHexCache.set(filePath, {mtimeMs: stats.mtimeMs, tempPath});
+  return tempPath;
+}
 
 /**
  * Format byte count into human-readable string
@@ -26,7 +110,8 @@ function formatBytes(bytes) {
  * Read a slice of bytes from filePath at given offset and length (On-demand random access I/O)
  */
 function readFileChunk(filePath, offset, length) {
-  const fd = fs.openSync(filePath, 'r');
+  const binPath = resolveBinaryPath(filePath);
+  const fd = fs.openSync(binPath, 'r');
   try {
     const stats = fs.fstatSync(fd);
     const safeOffset = Math.max(0, Math.min(Number(offset) || 0, stats.size));
@@ -36,12 +121,7 @@ function readFileChunk(filePath, offset, length) {
     if (readLen > 0) {
       fs.readSync(fd, buffer, 0, readLen, safeOffset);
     }
-    return {
-      offset: safeOffset,
-      length: readLen,
-      totalSize: stats.size,
-      bytes: Array.from(buffer)
-    };
+    return {offset: safeOffset, length: readLen, totalSize: stats.size, bytes: Array.from(buffer)};
   } finally {
     fs.closeSync(fd);
   }
@@ -51,8 +131,9 @@ function readFileChunk(filePath, offset, length) {
  * Copy source binary to a new file and apply sparse segment patches at their exact offsets
  */
 function savePatchedBinary(sourceFilePath, destFilePath, patches) {
-  if (path.resolve(sourceFilePath) !== path.resolve(destFilePath)) {
-    fs.copyFileSync(sourceFilePath, destFilePath);
+  const binSource = resolveBinaryPath(sourceFilePath);
+  if (path.resolve(binSource) !== path.resolve(destFilePath)) {
+    fs.copyFileSync(binSource, destFilePath);
   }
 
   const fd = fs.openSync(destFilePath, 'r+');
@@ -89,7 +170,8 @@ function readDiscriminatorHex(buf, offset, disc) {
  * e.g. 8192B blocks, 72B entries -> 113 entries/block, 56B padding skipped per block.
  */
 function queryRepeatEntries(filePath, schema, options = {}) {
-  const fd = fs.openSync(filePath, 'r');
+  const binPath = resolveBinaryPath(filePath);
+  const fd = fs.openSync(binPath, 'r');
   try {
     const stats = fs.fstatSync(fd);
     const fileSize = stats.size;
@@ -117,21 +199,24 @@ function queryRepeatEntries(filePath, schema, options = {}) {
     const pageSize = Math.max(1, Math.min(500, Number(options.pageSize) || 100));
     const typeFilter = options.typeFilter || 'all';
     const hideSkipped = Boolean(options.hideSkipped);
-    const blockFilter =
-      options.blockIndex !== undefined && options.blockIndex !== null && options.blockIndex !== ''
-        ? Number(options.blockIndex)
-        : null;
+    const anomaliesOnly = Boolean(options.anomaliesOnly);
+    const blockFilter = options.blockIndex !== undefined && options.blockIndex !== null && options.blockIndex !== '' ?
+        Number(options.blockIndex) :
+        null;
 
-    const disc = schema.discriminator || { offset: 0, size: 1, mask: 0xff };
+    const disc = schema.discriminator || {offset: 0, size: 1, mask: 0xff};
     const variants = schema.variants || {};
-    const defVar = schema.defaultVariant || { name: 'ENTRY', skip: false };
+    const defVar = schema.defaultVariant || {name: 'ENTRY', skip: false};
+    const endian = schema.endianness || 'little';
 
     // Fast O(1) direct math path when no filtering is active
-    if (typeFilter === 'all' && !hideSkipped && blockFilter === null) {
+    if (typeFilter === 'all' && !hideSkipped && !anomaliesOnly && blockFilter === null) {
       const startIdx = page * pageSize;
       const endIdx = Math.min(totalSlots, startIdx + pageSize);
       const entries = [];
       const singleBuf = Buffer.alloc(entrySize);
+      const anomalyCounts = {error: 0, warn: 0, info: 0};
+      const anomalies = [];
 
       for (let idx = startIdx; idx < endIdx; idx++) {
         let blockIndex = 0;
@@ -146,6 +231,12 @@ function queryRepeatEntries(filePath, schema, options = {}) {
         fs.readSync(fd, singleBuf, 0, entrySize, fileOffset);
         const typeHex = readDiscriminatorHex(singleBuf, 0, disc);
         const variant = variants[typeHex] || defVar;
+        const bytes = Array.from(singleBuf);
+        const {severity, ruleHits} = evaluateEntryRules(bytes, variant, schema, endian);
+        if (severity) {
+          anomalyCounts[severity] = (anomalyCounts[severity] || 0) + 1;
+          anomalies.push({matchIdx: idx, severity});
+        }
         entries.push({
           index: idx,
           blockIndex,
@@ -154,7 +245,9 @@ function queryRepeatEntries(filePath, schema, options = {}) {
           typeHex,
           variantName: variant.name,
           skipped: Boolean(variant.skip),
-          bytes: Array.from(singleBuf)
+          severity,
+          ruleHits,
+          bytes
         });
       }
 
@@ -167,18 +260,24 @@ function queryRepeatEntries(filePath, schema, options = {}) {
         page,
         pageSize,
         totalPages: Math.max(1, Math.ceil(totalSlots / pageSize)),
+        anomalyCounts,
+        anomalies,
         entries
       };
     }
 
     // Filtered scan (reads in block-aligned chunks for high throughput up to 64MB+)
     const chunkBlockCount = blockSize > 0 ? Math.max(1, Math.floor((1024 * 1024) / blockSize)) : 1;
-    const chunkByteSize = blockSize > 0 ? chunkBlockCount * blockSize : Math.floor((1024 * 1024) / entrySize) * entrySize;
+    const chunkByteSize =
+        blockSize > 0 ? chunkBlockCount * blockSize : Math.floor((1024 * 1024) / entrySize) * entrySize;
     const chunkBuf = Buffer.alloc(chunkByteSize);
 
     const targetStart = page * pageSize;
     const targetEnd = targetStart + pageSize;
     const entries = [];
+    const anomalyCounts = {error: 0, warn: 0, info: 0};
+    const anomalies = [];
+    const schemaHasRules = Array.isArray(schema.rules) && schema.rules.length > 0;
     let matchedCount = 0;
 
     function tryCollectEntry(entryInBuf, absFileOffset, absIdx, blockIndex, slotIndex) {
@@ -187,9 +286,22 @@ function queryRepeatEntries(filePath, schema, options = {}) {
       if (hideSkipped && variant.skip) return;
       if (typeFilter !== 'all' && typeHex !== typeFilter) return;
 
+      const hasRules = schemaHasRules || (Array.isArray(variant.rules) && variant.rules.length > 0);
+      let ruleEval = null;
+      let bytes = null;
+      if (hasRules || anomaliesOnly) {
+        bytes = Array.from(chunkBuf.subarray(entryInBuf, entryInBuf + entrySize));
+        ruleEval = evaluateEntryRules(bytes, variant, schema, endian);
+        if (anomaliesOnly && !ruleEval.severity) return;
+        if (ruleEval.severity) {
+          anomalyCounts[ruleEval.severity] = (anomalyCounts[ruleEval.severity] || 0) + 1;
+          if (anomalies.length < 2000) anomalies.push({matchIdx: matchedCount, severity: ruleEval.severity});
+        }
+      }
+
       if (matchedCount >= targetStart && matchedCount < targetEnd) {
-        const bytes = Array.from(chunkBuf.subarray(entryInBuf, entryInBuf + entrySize));
-        const { severity, ruleHits } = evaluateEntryRules(bytes, variant, schema, schema.endianness || 'little');
+        if (!bytes) bytes = Array.from(chunkBuf.subarray(entryInBuf, entryInBuf + entrySize));
+        if (!ruleEval) ruleEval = {severity: null, ruleHits: []};
         entries.push({
           index: absIdx,
           blockIndex,
@@ -198,8 +310,8 @@ function queryRepeatEntries(filePath, schema, options = {}) {
           typeHex,
           variantName: variant.name,
           skipped: Boolean(variant.skip),
-          severity,
-          ruleHits,
+          severity: ruleEval.severity,
+          ruleHits: ruleEval.ruleHits,
           bytes
         });
       }
@@ -249,6 +361,8 @@ function queryRepeatEntries(filePath, schema, options = {}) {
       page,
       pageSize,
       totalPages: Math.max(1, Math.ceil(matchedCount / pageSize)),
+      anomalyCounts,
+      anomalies,
       entries
     };
   } finally {
@@ -260,23 +374,28 @@ function queryRepeatEntries(filePath, schema, options = {}) {
  * Scan communication protocol packets (e.g. UFS UPIU stream) with pagination & type filtering
  */
 function scanProtocolPackets(filePath, schema, options = {}) {
-  const fd = fs.openSync(filePath, 'r');
+  const binPath = resolveBinaryPath(filePath);
+  const fd = fs.openSync(binPath, 'r');
   try {
     const stats = fs.fstatSync(fd);
     const fileSize = stats.size;
     const startOffset = Math.max(0, Number(options.startOffset) || 0);
-    const framing = schema.packetFraming || { headerSize: 32, ehsLenOffset: -1, dataSegLenOffset: -1 };
+    const framing = schema.packetFraming || {headerSize: 32, ehsLenOffset: -1, dataSegLenOffset: -1};
     const headerSize = Math.max(4, framing.headerSize || 32);
-    const disc = schema.discriminator || { offset: 0, size: 1, mask: 0x3f };
+    const disc = schema.discriminator || {offset: 0, size: 1, mask: 0x3f};
     const variants = schema.variants || {};
 
     const page = Math.max(0, Number(options.page) || 0);
     const pageSize = Math.max(1, Math.min(500, Number(options.pageSize) || 100));
     const typeFilter = options.typeFilter || 'all';
+    const anomaliesOnly = Boolean(options.anomaliesOnly);
     const targetStart = page * pageSize;
     const targetEnd = targetStart + pageSize;
 
     const packets = [];
+    const anomalyCounts = {error: 0, warn: 0, info: 0};
+    const anomalies = [];
+    const schemaHasRules = Array.isArray(schema.rules) && schema.rules.length > 0;
     const WINDOW_SIZE = 256 * 1024;
     const winBuf = Buffer.alloc(WINDOW_SIZE);
     let winStart = -1;
@@ -315,7 +434,25 @@ function scanProtocolPackets(filePath, schema, options = {}) {
       const totalPktLen = Math.min(fileSize - cursor, headerSize + ehsBytes + dataSegBytes);
 
       if (typeFilter === 'all' || typeHex === typeFilter) {
-        if (matchedCount >= targetStart && matchedCount < targetEnd) {
+        const hasRules = schemaHasRules || (variant && Array.isArray(variant.rules) && variant.rules.length > 0);
+        const inTargetPage = matchedCount >= targetStart && matchedCount < targetEnd;
+        let headerBytes = null;
+        let ruleEval = null;
+        if (hasRules || anomaliesOnly || inTargetPage) {
+          headerBytes = Array.from(winBuf.subarray(rel, rel + headerSize));
+          ruleEval = hasRules ? evaluateEntryRules(headerBytes, variant, schema, schema.endianness || 'big') :
+                                {severity: null, ruleHits: []};
+          if (anomaliesOnly && !ruleEval.severity) {
+            totalPackets++;
+            cursor += Math.max(headerSize, totalPktLen);
+            continue;
+          }
+          if (ruleEval.severity) {
+            anomalyCounts[ruleEval.severity] = (anomalyCounts[ruleEval.severity] || 0) + 1;
+            if (anomalies.length < 2000) anomalies.push({matchIdx: matchedCount, severity: ruleEval.severity});
+          }
+        }
+        if (inTargetPage) {
           const payloadLen = Math.min(64, Math.max(0, totalPktLen - headerSize));
           let payloadBytes = [];
           if (payloadLen > 0) {
@@ -327,8 +464,6 @@ function scanProtocolPackets(filePath, schema, options = {}) {
               payloadBytes = Array.from(pBuf);
             }
           }
-          const headerBytes = Array.from(winBuf.subarray(rel, rel + headerSize));
-          const { severity, ruleHits } = evaluateEntryRules(headerBytes, variant, schema, schema.endianness || 'big');
           packets.push({
             index: totalPackets,
             fileOffset: cursor,
@@ -340,8 +475,8 @@ function scanProtocolPackets(filePath, schema, options = {}) {
             variantName: variant ? variant.name : `UNKNOWN (${typeHex})`,
             taskTag: '0x' + winBuf[rel + 3].toString(16).toUpperCase().padStart(2, '0'),
             lun: '0x' + winBuf[rel + 2].toString(16).toUpperCase().padStart(2, '0'),
-            severity,
-            ruleHits,
+            severity: ruleEval.severity,
+            ruleHits: ruleEval.ruleHits,
             headerBytes,
             payloadBytes
           });
@@ -359,6 +494,8 @@ function scanProtocolPackets(filePath, schema, options = {}) {
       page,
       pageSize,
       totalPages: Math.max(1, Math.ceil(matchedCount / pageSize)),
+      anomalyCounts,
+      anomalies,
       packets
     };
   } finally {
@@ -377,7 +514,7 @@ function walkWorkspaceFiles(searchDirs, maxDepth, onFile) {
     if (depth > maxDepth || !dir || !fs.existsSync(dir)) return;
     let entries = [];
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries = fs.readdirSync(dir, {withFileTypes: true});
     } catch (_) {
       return;
     }
@@ -439,7 +576,7 @@ function discoverWorkspaceConfigs(searchDirs) {
     }
   });
 
-  return { discoveredSchemas, discoveredLayouts };
+  return {discoveredSchemas, discoveredLayouts};
 }
 
 /**
@@ -458,9 +595,8 @@ function hydrateLayoutFromFile(layoutFilePath, binFilePath, baselineFilePath = n
     let schemaBaseAddr = 0;
 
     if (!schemaId.startsWith('builtin-')) {
-      const candidatePath = path.isAbsolute(schemaId)
-        ? path.resolve(schemaId)
-        : path.resolve(layoutDir, schemaId.replace(/^file:/, ''));
+      const candidatePath =
+          path.isAbsolute(schemaId) ? path.resolve(schemaId) : path.resolve(layoutDir, schemaId.replace(/^file:/, ''));
       if (fs.existsSync(candidatePath)) {
         const sText = fs.readFileSync(candidatePath, 'utf8');
         const parsedSchema = parseBinsightSchema(sText, `file:${candidatePath}`, candidatePath);
@@ -473,9 +609,7 @@ function hydrateLayoutFromFile(layoutFilePath, binFilePath, baselineFilePath = n
     }
 
     const slice = readFileChunk(binFilePath, seg.startOffset, byteSpan);
-    const baseSlice = baselineFilePath
-      ? readFileChunk(baselineFilePath, seg.startOffset, byteSpan)
-      : null;
+    const baseSlice = baselineFilePath ? readFileChunk(baselineFilePath, seg.startOffset, byteSpan) : null;
 
     hydratedSegments.push({
       label: seg.label,
@@ -488,7 +622,7 @@ function hydrateLayoutFromFile(layoutFilePath, binFilePath, baselineFilePath = n
     });
   }
 
-  return { layout, extraSchemas, hydratedSegments };
+  return {layout, extraSchemas, hydratedSegments};
 }
 
 /**
@@ -501,7 +635,7 @@ function matchBestConfigForFile(filePath, allSchemas, discoveredLayouts) {
   for (const layout of discoveredLayouts) {
     const layoutStem = layout.fileName.replace(/\.binsight-layout\.json$/i, '').toLowerCase();
     if (stem === layoutStem || stem.startsWith(layoutStem) || layoutStem.startsWith(stem)) {
-      return { matchedLayout: layout, matchedSchema: null };
+      return {matchedLayout: layout, matchedSchema: null};
     }
   }
 
@@ -513,8 +647,10 @@ function matchBestConfigForFile(filePath, allSchemas, discoveredLayouts) {
     const descText = `${sch.mode} ${sch.description || ''}`.toLowerCase();
     let score = 0;
     for (const tok of tokens) {
-      if (primaryName.includes(tok)) score += 20;
-      else if (descText.includes(tok)) score += 3;
+      if (primaryName.includes(tok))
+        score += 20;
+      else if (descText.includes(tok))
+        score += 3;
     }
     if (sch.filePath) score += 1;
 
@@ -524,7 +660,7 @@ function matchBestConfigForFile(filePath, allSchemas, discoveredLayouts) {
     }
   }
 
-  return { matchedLayout: null, matchedSchema: bestSchema };
+  return {matchedLayout: null, matchedSchema: bestSchema};
 }
 
 /**
@@ -535,9 +671,8 @@ function computeFileHashes(filePath, fileSize) {
     if (fileSize > MAX_HASH_SIZE) {
       resolve({
         skipped: true,
-        reason: `File size (${formatBytes(fileSize)}) exceeds ${formatBytes(
-          MAX_HASH_SIZE
-        )}. Full-file hashing is skipped for instant loading.`
+        reason: `File size (${formatBytes(fileSize)}) exceeds ${
+            formatBytes(MAX_HASH_SIZE)}. Full-file hashing is skipped for instant loading.`
       });
       return;
     }
@@ -553,34 +688,27 @@ function computeFileHashes(filePath, fileSize) {
       sha256.update(chunk);
     });
     stream.on('end', () => {
-      resolve({
-        skipped: false,
-        md5: md5.digest('hex'),
-        sha1: sha1.digest('hex'),
-        sha256: sha256.digest('hex')
-      });
+      resolve({skipped: false, md5: md5.digest('hex'), sha1: sha1.digest('hex'), sha256: sha256.digest('hex')});
     });
     stream.on('error', (err) => reject(err));
   });
 }
 
 /**
- * Perform fast initial analysis and smartly hydrate the matching mode (Register Map, Struct List, Repeat Struct, or Protocol)
+ * Perform fast initial analysis and smartly hydrate the matching mode (Register Map, Struct List, Repeat Struct, or
+ * Protocol)
  */
 async function analyzeFile(filePath, extraSearchDirs = []) {
-  const stats = fs.statSync(filePath);
-  const initialHexChunk = readFileChunk(filePath, 0, DEFAULT_HEX_PAGE_SIZE);
-  const hashes = await computeFileHashes(filePath, stats.size);
+  const binPath = resolveBinaryPath(filePath);
+  const stats = fs.statSync(binPath);
+  const initialHexChunk = readFileChunk(binPath, 0, DEFAULT_HEX_PAGE_SIZE);
+  const hashes = await computeFileHashes(binPath, stats.size);
 
   const searchRoots = [path.dirname(filePath), path.dirname(path.dirname(filePath)), ...extraSearchDirs];
-  const { discoveredSchemas, discoveredLayouts } = discoverWorkspaceConfigs(searchRoots);
+  const {discoveredSchemas, discoveredLayouts} = discoverWorkspaceConfigs(searchRoots);
 
   const allSchemas = [...discoveredSchemas, ...getBuiltinSchemas()];
-  const { matchedLayout, matchedSchema } = matchBestConfigForFile(
-    filePath,
-    allSchemas,
-    discoveredLayouts
-  );
+  const {matchedLayout, matchedSchema} = matchBestConfigForFile(filePath, allSchemas, discoveredLayouts);
 
   let initialSegments = [];
   let activeLayoutFileName = null;
@@ -598,29 +726,28 @@ async function analyzeFile(filePath, extraSearchDirs = []) {
       }
       initialSegments = hydrated.hydratedSegments;
       activeLayoutFileName = matchedLayout.fileName;
-    } catch (_) {}
+    } catch (_) {
+    }
   }
 
   if (initialSegments.length === 0) {
     const chosenSchema = matchedSchema || allSchemas[0];
     if (chosenSchema && chosenSchema.mode === 'repeat-struct') {
-      initialRepeatResult = queryRepeatEntries(filePath, chosenSchema, { page: 0, pageSize: 100 });
+      initialRepeatResult = queryRepeatEntries(filePath, chosenSchema, {page: 0, pageSize: 100});
     } else if (chosenSchema && chosenSchema.mode === 'protocol') {
       initialProtocolResult = scanProtocolPackets(filePath, chosenSchema, {});
     }
 
     const slice = readFileChunk(filePath, 0, chosenSchema ? chosenSchema.byteSpan : 64);
-    initialSegments = [
-      {
-        label: chosenSchema ? chosenSchema.name.replace(/\s*\(.*\)$/, '') : 'SEG_0',
-        startOffset: 0,
-        hwBaseAddress: chosenSchema ? chosenSchema.baseAddress || 0 : 0,
-        schemaId: chosenSchema ? chosenSchema.id : 'empty',
-        endianness: chosenSchema ? chosenSchema.endianness || 'little' : 'little',
-        bytes: slice.bytes,
-        baselineBytes: null
-      }
-    ];
+    initialSegments = [{
+      label: chosenSchema ? chosenSchema.name.replace(/\s*\(.*\)$/, '') : 'SEG_0',
+      startOffset: 0,
+      hwBaseAddress: chosenSchema ? chosenSchema.baseAddress || 0 : 0,
+      schemaId: chosenSchema ? chosenSchema.id : 'empty',
+      endianness: chosenSchema ? chosenSchema.endianness || 'little' : 'little',
+      bytes: slice.bytes,
+      baselineBytes: null
+    }];
   }
 
   return {
@@ -638,17 +765,67 @@ async function analyzeFile(filePath, extraSearchDirs = []) {
     initialSegments,
     initialRepeatResult,
     initialProtocolResult,
-    hexChunk: {
-      ...initialHexChunk,
-      pageSize: DEFAULT_HEX_PAGE_SIZE
-    }
+    hexChunk: {...initialHexChunk, pageSize: DEFAULT_HEX_PAGE_SIZE}
   };
+}
+
+/**
+ * Search for a hex byte sequence or ASCII text pattern in a file (supports wrap-around).
+ */
+function searchFilePattern(filePath, query, mode = 'hex', startOffset = 0) {
+  const raw = String(query || '').trim();
+  if (!raw) return {found: false};
+
+  let needle = null;
+  if (mode === 'text') {
+    needle = Buffer.from(raw, 'utf8');
+  } else {
+    const cleaned = raw.replace(/0x/gi, '').replace(/[^0-9a-fA-F]/g, '');
+    if (cleaned.length < 2) return {found: false};
+    const even = cleaned.length % 2 === 1 ? '0' + cleaned : cleaned;
+    needle = Buffer.from(even, 'hex');
+  }
+  if (!needle || needle.length === 0) return {found: false};
+
+  const binPath = resolveBinaryPath(filePath);
+  const fd = fs.openSync(binPath, 'r');
+  try {
+    const {size} = fs.fstatSync(fd);
+    if (size < needle.length) return {found: false};
+
+    const CHUNK = 256 * 1024;
+    const overlap = needle.length - 1;
+    const buf = Buffer.alloc(CHUNK + overlap);
+
+    const scanRange = (from, to) => {
+      let pos = from;
+      while (pos < to) {
+        const readLen = Math.min(CHUNK + overlap, to - pos);
+        const bytesRead = fs.readSync(fd, buf, 0, readLen, pos);
+        if (bytesRead < needle.length) break;
+        const idx = buf.subarray(0, bytesRead).indexOf(needle);
+        if (idx >= 0) return pos + idx;
+        pos += CHUNK;
+      }
+      return -1;
+    };
+
+    const clampedStart = Math.max(0, Math.min(Number(startOffset) || 0, size));
+    let hit = scanRange(clampedStart, size);
+    if (hit < 0 && clampedStart > 0) {
+      hit = scanRange(0, Math.min(size, clampedStart + overlap));
+    }
+    return hit >= 0 ? {found: true, offset: hit, length: needle.length} : {found: false};
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 module.exports = {
   analyzeFile,
   readFileChunk,
   savePatchedBinary,
+  searchFilePattern,
   queryRepeatEntries,
   scanProtocolPackets,
   discoverWorkspaceConfigs,

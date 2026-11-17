@@ -10,12 +10,12 @@
 <body>
   <header class="hud-bar">
     <div class="hud-left">
-      <nav class="hud-tabs">
-        <button class="tab-btn active" data-tab="tab-segments">Register Map</button>
-        <button class="tab-btn" data-tab="tab-struct-list">Struct List</button>
-        <button class="tab-btn" data-tab="tab-repeat-struct">Repeat Struct</button>
-        <button class="tab-btn" data-tab="tab-protocol">Protocol Diagram</button>
-        <button class="tab-btn" data-tab="tab-hex">Hex Dump</button>
+      <nav class="hud-tabs" role="tablist">
+        <button class="tab-btn active" role="tab" data-tab="tab-segments" title="Registers (1)">Registers</button>
+        <button class="tab-btn" role="tab" data-tab="tab-struct-list" title="Struct View (2)">Struct View</button>
+        <button class="tab-btn" role="tab" data-tab="tab-repeat-struct" title="Record Trace (3)">Record Trace</button>
+        <button class="tab-btn" role="tab" data-tab="tab-protocol" title="Packet Stream (4)">Packet Stream</button>
+        <button class="tab-btn" role="tab" data-tab="tab-hex" title="Hex Editor (5)">Hex Editor</button>
       </nav>
       <div class="hud-target" title="{{FILE_PATH}}">
         <strong id="file-name">{{FILE_NAME}}</strong>
@@ -25,7 +25,9 @@
     </div>
 
     <div class="hud-right">
-      <span class="hud-status" id="pill-mode-status">Read-Only</span>
+      <button id="btn-compare-baseline" class="btn" title="Compare against a Golden / Baseline .bin/.hex file">Compare</button>
+      <button id="btn-clear-baseline" class="btn btn-alert hidden" title="Clear Baseline Diff">✕ Clear Diff</button>
+      <span class="hud-status hidden" id="pill-mode-status">Read-Only</span>
     </div>
   </header>
 
@@ -36,20 +38,26 @@
         <div class="cmd-group">
           <button id="btn-add-segment" class="btn btn-primary">+ Segment</button>
 
-          <div class="cmd-select-box">
-            <select id="layout-select" title="Apply a multi-segment Layout Profile">
-              <option value="">Layout Profile...</option>
-            </select>
-            <button id="btn-load-layout-file" class="btn" title="Open *.binsight-layout.json from disk">Open</button>
-            <button id="btn-save-layout-file" class="btn" title="Save current segments to *.binsight-layout.json">Save</button>
-          </div>
-
-          <button id="btn-compare-baseline" class="btn" title="Compare against a Golden / Baseline .bin file">Compare .bin</button>
-          <button id="btn-clear-baseline" class="btn btn-alert hidden" title="Clear Baseline Diff">✕ Clear Diff</button>
+          <details class="cmd-more">
+            <summary class="btn" title="Layout Profiles & Export">Tools ▾</summary>
+            <div class="cmd-more-menu">
+              <div class="cmd-more-row">
+                <label>Layout:</label>
+                <select id="layout-select" title="Apply a multi-segment Layout Profile">
+                  <option value="">Layout Profile...</option>
+                </select>
+                <button id="btn-load-layout-file" class="btn" title="Open *.binsight-layout.json from disk">Open</button>
+                <button id="btn-save-layout-file" class="btn" title="Save current segments to *.binsight-layout.json">Save</button>
+              </div>
+              <div class="cmd-more-row">
+                <button id="btn-export-report" class="btn" title="Export decoded register report (.txt)">Export .txt</button>
+              </div>
+            </div>
+          </details>
         </div>
 
         <div class="cmd-group">
-          <input id="reg-search" type="text" placeholder="Filter register, field, or 0x..." class="search-input" />
+          <input id="reg-search" type="text" placeholder="Filter register, field, or 0x... (/)" class="search-input" />
 
           <select id="diff-filter-select" title="Filter registers">
             <option value="all">All Registers</option>
@@ -67,6 +75,11 @@
             <span>Bit Grid</span>
           </label>
 
+          <label class="hud-toggle" title="Show only pinned registers">
+            <input type="checkbox" id="chk-pinned-only" />
+            <span>Pinned Only</span>
+          </label>
+
           <label class="hud-toggle warn-toggle" title="Enable editing to toggle bits and save modified binary">
             <input type="checkbox" id="chk-edit-mode" />
             <span>Edit Mode</span>
@@ -74,7 +87,6 @@
 
           <button id="btn-reset-all" class="btn hidden">Revert</button>
           <button id="btn-save-as-bin" class="btn btn-primary hidden">Save .bin</button>
-          <button id="btn-export-report" class="btn" title="Export decoded register report (.txt)">Export .txt</button>
         </div>
       </div>
 
@@ -90,9 +102,9 @@
       <div class="cmd-strip">
         <div class="cmd-group">
           <label>Schema:</label>
-          <select id="sl-schema-select" style="max-width:260px;"></select>
+          <select id="sl-schema-select"></select>
           <label>Offset:</label>
-          <input id="sl-offset-input" type="text" value="0x0000" style="width:88px;" />
+          <input id="sl-offset-input" type="text" value="0x0000" />
           <select id="sl-endian-select">
             <option value="little">LE</option>
             <option value="big">BE</option>
@@ -111,26 +123,35 @@
       <div class="cmd-strip">
         <div class="cmd-group">
           <label>Schema:</label>
-          <select id="rs-schema-select" style="max-width:250px;"></select>
-          <label>Start Offset:</label>
-          <input id="rs-offset-input" type="text" value="0x0000" style="width:84px;" />
+          <select id="rs-schema-select"></select>
+          <label>Offset:</label>
+          <input id="rs-offset-input" type="text" value="0x0000" />
           <label>Type:</label>
           <select id="rs-type-filter">
             <option value="all">All Types</option>
           </select>
           <label class="hud-toggle" title="Skip unused/empty entries (e.g. 0xFF)">
             <input type="checkbox" id="rs-hide-skipped" checked />
-            <span>Hide Empty/Skip</span>
+            <span>Hide Empty</span>
+          </label>
+          <label class="hud-toggle warn-toggle" title="Show only entries matching anomaly rules">
+            <input type="checkbox" id="rs-anomalies-only" />
+            <span>Anomalies</span>
           </label>
           <button id="rs-edit-json-btn" class="btn">Edit JSON</button>
         </div>
         <div class="cmd-group">
+          <span id="rs-anomaly-bar" class="anomaly-bar hidden">
+            <span id="rs-anomaly-badge" class="hud-chip"></span>
+            <button id="rs-prev-err" class="btn" title="Previous Anomaly">◀ Err</button>
+            <button id="rs-next-err" class="btn" title="Next Anomaly">Err ▶</button>
+          </span>
           <span id="rs-geometry-badge" class="hud-chip"></span>
-          <label>Block #:</label>
-          <input id="rs-block-input" type="text" placeholder="All" style="width:64px;" />
-          <button id="rs-prev-page" class="btn">◀ Prev</button>
-          <span id="rs-page-info" class="file-off-sub">Page 1 / 1</span>
-          <button id="rs-next-page" class="btn">Next ▶</button>
+          <label>Block:</label>
+          <input id="rs-block-input" type="text" placeholder="All" />
+          <button id="rs-prev-page" class="btn" title="Previous Page">◀</button>
+          <span id="rs-page-info" class="file-off-sub">1 / 1</span>
+          <button id="rs-next-page" class="btn" title="Next Page">▶</button>
         </div>
       </div>
       <div class="repeat-layout">
@@ -147,39 +168,58 @@
     <section id="tab-protocol" class="tab-panel">
       <div class="cmd-strip">
         <div class="cmd-group">
-          <select id="proto-schema-select" style="max-width:210px;" title="Protocol Schema"></select>
+          <select id="proto-schema-select" title="Protocol Schema"></select>
           <label>Offset:</label>
-          <input id="proto-offset-input" type="text" value="0x0000" style="width:74px;" />
+          <input id="proto-offset-input" type="text" value="0x0000" />
           <select id="proto-type-filter">
             <option value="all">All Types</option>
           </select>
+          <label class="hud-toggle warn-toggle" title="Show only packets matching anomaly rules">
+            <input type="checkbox" id="proto-anomalies-only" />
+            <span>Anomalies</span>
+          </label>
           <label>Entry #:</label>
           <div class="cmd-select-box">
-            <button id="proto-prev-entry" class="btn" title="Previous Entry">◀</button>
-            <input id="proto-entry-input" type="text" value="0" style="width:52px;text-align:center;" title="Jump to Entry index (0..N)" />
-            <button id="proto-next-entry" class="btn" title="Next Entry">▶</button>
+            <button id="proto-prev-entry" class="btn" title="Previous Entry (↑)">◀</button>
+            <input id="proto-entry-input" type="text" value="0" style="text-align:center;" title="Jump to Entry index (0..N)" />
+            <button id="proto-next-entry" class="btn" title="Next Entry (↓)">▶</button>
           </div>
-          <label>Size:</label>
-          <select id="proto-size-select" title="Adjust diagram table size">
-            <option value="compact" selected>Compact (S)</option>
-            <option value="normal">Medium (M)</option>
-            <option value="large">Large (L)</option>
-          </select>
-          <label class="hud-toggle" title="Hide Reserved fields in diagram">
-            <input type="checkbox" id="proto-hide-rsvd" />
-            <span>Hide RSVD</span>
-          </label>
-          <label class="hud-toggle" title="Show decoded fields table below diagram">
-            <input type="checkbox" id="proto-show-details" checked />
-            <span>Fields</span>
-          </label>
-          <button id="proto-edit-json-btn" class="btn">Edit JSON</button>
+          <details class="cmd-more">
+            <summary class="btn" title="Diagram View Options & Schema">View ▾</summary>
+            <div class="cmd-more-menu">
+              <div class="cmd-more-row">
+                <label>Size:</label>
+                <select id="proto-size-select" title="Adjust diagram table size">
+                  <option value="compact" selected>Compact (S)</option>
+                  <option value="normal">Medium (M)</option>
+                  <option value="large">Large (L)</option>
+                </select>
+                <label class="hud-toggle" title="Hide Reserved fields in diagram">
+                  <input type="checkbox" id="proto-hide-rsvd" />
+                  <span>Hide RSVD</span>
+                </label>
+                <label class="hud-toggle" title="Show decoded fields table below diagram">
+                  <input type="checkbox" id="proto-show-details" checked />
+                  <span>Fields</span>
+                </label>
+              </div>
+              <div class="cmd-more-row">
+                <button id="proto-edit-json-btn" class="btn">Edit JSON</button>
+              </div>
+            </div>
+          </details>
         </div>
         <div class="cmd-group">
-          <span id="proto-pkt-count" class="hud-chip">0 Entries</span>
-          <button id="proto-prev-page" class="btn">◀ Page</button>
+          <input id="proto-field-search" type="text" placeholder="Filter fields..." class="search-input" />
+          <span id="proto-anomaly-bar" class="anomaly-bar hidden">
+            <span id="proto-anomaly-badge" class="hud-chip"></span>
+            <button id="proto-prev-err" class="btn" title="Previous Anomaly">◀ Err</button>
+            <button id="proto-next-err" class="btn" title="Next Anomaly">Err ▶</button>
+          </span>
+          <span id="proto-pkt-count" class="hud-chip">0</span>
+          <button id="proto-prev-page" class="btn" title="Previous Page">◀</button>
           <span id="proto-page-info" class="file-off-sub">1 / 1</span>
-          <button id="proto-next-page" class="btn">Page ▶</button>
+          <button id="proto-next-page" class="btn" title="Next Page">▶</button>
         </div>
       </div>
       <div class="proto-layout">
@@ -195,35 +235,46 @@
         <div class="hex-main term-box">
           <div class="hex-toolbar">
             <div class="cmd-group">
-              <button id="btn-prev-page" class="btn">◀ Prev 4KB</button>
+              <button id="btn-jump-back" class="btn hidden" title="Return to previous tab (Alt+←)">↩ Back</button>
+              <button id="btn-prev-page" class="btn" title="Previous Page">◀</button>
               <span id="page-indicator" class="hud-mono">0x00000000</span>
-              <button id="btn-next-page" class="btn">Next 4KB ▶</button>
+              <button id="btn-next-page" class="btn" title="Next Page">▶</button>
+              <label>Line:</label>
+              <input id="hex-row-width" type="number" min="1" max="128" value="16" title="Bytes per row (1–128)" />
+              <label>Page:</label>
+              <input id="hex-page-size" type="number" min="16" max="65536" step="16" value="4096" title="Bytes per page (16–65536)" />
             </div>
             <div class="cmd-group">
-              <input id="jump-input" type="text" placeholder="Offset (0x100)" style="width:110px;" />
+              <input id="jump-input" type="text" placeholder="Offset (0x100)" />
               <button id="btn-jump" class="btn">Go</button>
+              <select id="hex-find-mode" title="Search mode">
+                <option value="hex" selected>Hex</option>
+                <option value="text">Text</option>
+              </select>
+              <input id="hex-find-input" type="text" placeholder="Find..." />
+              <button id="btn-hex-find" class="btn" title="Find next occurrence">Find</button>
+              <button id="btn-copy-hex-range" class="btn" title="Copy selected byte(s) as hex (c)">Copy Hex</button>
+              <label class="hud-toggle warn-toggle" title="Enable byte editing (type 0-9 / A-F on selected byte)">
+                <input type="checkbox" id="hex-edit-mode" />
+                <span>Edit</span>
+              </label>
+              <button id="hex-revert-btn" class="btn hidden">Revert</button>
+              <button id="hex-save-btn" class="btn btn-primary hidden">Save .bin</button>
             </div>
           </div>
 
           <div class="hex-table-header">
             <span class="col-offset">OFFSET</span>
-            <span class="col-hex">00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F</span>
+            <span id="hex-col-header" class="col-hex"></span>
             <span class="col-ascii">ASCII</span>
           </div>
           <div id="hex-rows" class="hex-rows"></div>
         </div>
 
-        <aside class="hex-sidebar">
-          <div class="term-box">
-            <div class="term-box-hdr">Data Inspector</div>
-            <p class="hint" id="inspector-offset">Offset: 0x00000000</p>
-            <table class="kv-table" id="inspector-table"></table>
-          </div>
-          <div class="term-box">
-            <div class="term-box-hdr">File Hashes</div>
-            <div id="hash-box"></div>
-          </div>
-        </aside>
+        <details class="term-box hex-hashes-box">
+          <summary class="term-box-hdr">File Hashes</summary>
+          <div id="hash-box"></div>
+        </details>
       </div>
     </section>
   </main>

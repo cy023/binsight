@@ -7,4 +7,6 @@ samples/**
 architecture_plan.md
 SPECIFICATION.md
 DESIGN.md
+.DS_Store
+.clang-format
 *.vsix

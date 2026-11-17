@@ -25,7 +25,7 @@ flowchart TB
     end
 
     subgraph Webview["3. Offline Webview Workbench (media/core.js + modes/*.js)"]
-        STATE["Core & Mode Registry (media/core.js + main.js)<br/>• 64-bit BigInt 位元運算 & 2補數/IEEE754/Q-Format<br/>• 共用分頁、Split Resizer、規則命中渲染與訊息分派"]
+        STATE["Core & Mode Registry (media/core.js + main.js)<br/>• 64-bit BigInt 位元運算 & 2補數/IEEE754/Q-Format<br/>• 跨視圖 Jump to Hex、鍵盤導覽與 vscode.setState 持久化<br/>• 共用分頁、Split Resizer、規則命中渲染與訊息分派"]
         VIEWS["5 大獨立視圖模組 (media/modes/*.js)<br/>1. registerMap.js (多區段/Bit Grid/Diff/Edit)<br/>2. structList.js (條列清單)<br/>3. repeatStruct.js (分頁清單 + 異常標色 + 可調明細)<br/>4. protocol.js (封包清單 + 異常標色 + 32-bit 規格圖)<br/>5. hexOverview.js (4KB 分頁 + Data Inspector + Hashes)"]
     end
 
@@ -65,9 +65,10 @@ flowchart TB
 | [src/registerParser.js](file:///home/cy023/project/binsight/src/registerParser.js) | 4 種模式的 `*.binsight.json` 與 `*.binsight-layout.json` 解析正規化 |
 | [schemas/](file:///home/cy023/project/binsight/schemas) | JSON Schema 驗證定義與 8 份內建 `*.binsight.json` 範本 |
 | [media/webview.html](file:///home/cy023/project/binsight/media/webview.html) | Webview 靜態 HTML 樣板 |
-| [media/core.js](file:///home/cy023/project/binsight/media/core.js) | 共用 BigInt 位元運算、Hex/位址工具、分頁控制、Split Resizer 與 Mode 註冊表 |
+| [media/core.js](file:///home/cy023/project/binsight/media/core.js) | 共用 BigInt 位元運算、Hex/位址工具、跨視圖跳轉、鍵盤導覽、UI 狀態持久化與 Mode 註冊表 |
 | [media/modes/](file:///home/cy023/project/binsight/media/modes) | `registerMap.js`、`structList.js`、`repeatStruct.js`、`protocol.js`、`hexOverview.js` 獨立視圖模組 |
 | [media/main.js](file:///home/cy023/project/binsight/media/main.js) | Webview 啟動協調器與 `postMessage` 分派入口 |
-| [media/main.css](file:///home/cy023/project/binsight/media/main.css) | 基於 VS Code 原生主題變數的簡潔樣式、32-bit Protocol 圖示與異常嚴重度標色 |
+| [media/main.css](file:///home/cy023/project/binsight/media/main.css) | 基於 VS Code 原生主題變數的簡潔樣式、Sticky HUD、32-bit Protocol 圖示與異常嚴重度標色 |
 | [scripts/package-vsix.py](file:///home/cy023/project/binsight/scripts/package-vsix.py) | 離線產生 `[0x]` `resources/icon.png` 並封裝為 `binsight-0.1.0.vsix` |
+| [scripts/install-vsix.py](file:///home/cy023/project/binsight/scripts/install-vsix.py) | 跨平台（Windows / Linux / macOS）離線打包並呼叫 VS Code CLI 安裝 `.vsix` |
 | [scripts/test-analyzer.js](file:///home/cy023/project/binsight/scripts/test-analyzer.js) | 產生 4 種模式的真實測試 `.bin` 樣本並執行端對端驗證 |

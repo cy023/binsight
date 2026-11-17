@@ -11,12 +11,8 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const {
-  analyzeFile,
-  queryRepeatEntries,
-  scanProtocolPackets
-} = require('../src/analyzer');
-const { getBuiltinSchemas } = require('../src/registerParser');
+const {analyzeFile, queryRepeatEntries, scanProtocolPackets} = require('../src/analyzer');
+const {getBuiltinSchemas} = require('../src/registerParser');
 
 const ROOT = path.resolve(__dirname, '..');
 const SAMPLE_DIR = path.join(ROOT, 'samples');
@@ -28,7 +24,7 @@ function generateAllSamples() {
       if (fs.statSync(p).isFile()) fs.unlinkSync(p);
     }
   } else {
-    fs.mkdirSync(SAMPLE_DIR, { recursive: true });
+    fs.mkdirSync(SAMPLE_DIR, {recursive: true});
   }
 
   const builtins = getBuiltinSchemas();
@@ -37,10 +33,15 @@ function generateAllSamples() {
   // Write canonical *.binsight.json schemas for all modes
   fs.writeFileSync(path.join(SAMPLE_DIR, 'sys_ctrl.binsight.json'), findBuiltin('builtin-sys-ctrl').sourceText, 'utf8');
   fs.writeFileSync(path.join(SAMPLE_DIR, 'pcie_phy.binsight.json'), findBuiltin('builtin-pcie-phy').sourceText, 'utf8');
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'dma_engine.binsight.json'), findBuiltin('builtin-dma-engine').sourceText, 'utf8');
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'fw_header.binsight.json'), findBuiltin('builtin-struct-fw-header').sourceText, 'utf8');
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.binsight.json'), findBuiltin('builtin-repeat-72b-8k').sourceText, 'utf8');
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'ufs_upiu.binsight.json'), findBuiltin('builtin-protocol-ufs-upiu').sourceText, 'utf8');
+  fs.writeFileSync(
+      path.join(SAMPLE_DIR, 'dma_engine.binsight.json'), findBuiltin('builtin-dma-engine').sourceText, 'utf8');
+  fs.writeFileSync(
+      path.join(SAMPLE_DIR, 'fw_header.binsight.json'), findBuiltin('builtin-struct-fw-header').sourceText, 'utf8');
+  fs.writeFileSync(
+      path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.binsight.json'), findBuiltin('builtin-repeat-72b-8k').sourceText,
+      'utf8');
+  fs.writeFileSync(
+      path.join(SAMPLE_DIR, 'ufs_upiu.binsight.json'), findBuiltin('builtin-protocol-ufs-upiu').sourceText, 'utf8');
 
   // ============================================================================
   // MODE 4 (Existing): Register Map Multi-IP SoC Crash vs Golden
@@ -81,13 +82,38 @@ function generateAllSamples() {
     $schema: '../schemas/binsight-layout.schema.json',
     name: 'Scenario 1: SoC Multi-IP Crash Dump Layout (4 Segments)',
     segments: [
-      { label: 'SYS_CTRL_MAIN', startOffset: '0x0000', hwBaseAddress: '0x40000000', schema: './sys_ctrl.binsight.json', endianness: 'little' },
-      { label: 'PCIE_PHY_LANE0', startOffset: '0x0100', hwBaseAddress: '0x40010000', schema: './pcie_phy.binsight.json', endianness: 'little' },
-      { label: 'PCIE_PHY_LANE1', startOffset: '0x0140', hwBaseAddress: '0x40011000', schema: './pcie_phy.binsight.json', endianness: 'little' },
-      { label: 'DMA_ENGINE_0', startOffset: '0x0200', hwBaseAddress: '0x40020000', schema: './dma_engine.binsight.json', endianness: 'little' }
+      {
+        label: 'SYS_CTRL_MAIN',
+        startOffset: '0x0000',
+        hwBaseAddress: '0x40000000',
+        schema: './sys_ctrl.binsight.json',
+        endianness: 'little'
+      },
+      {
+        label: 'PCIE_PHY_LANE0',
+        startOffset: '0x0100',
+        hwBaseAddress: '0x40010000',
+        schema: './pcie_phy.binsight.json',
+        endianness: 'little'
+      },
+      {
+        label: 'PCIE_PHY_LANE1',
+        startOffset: '0x0140',
+        hwBaseAddress: '0x40011000',
+        schema: './pcie_phy.binsight.json',
+        endianness: 'little'
+      },
+      {
+        label: 'DMA_ENGINE_0',
+        startOffset: '0x0200',
+        hwBaseAddress: '0x40020000',
+        schema: './dma_engine.binsight.json',
+        endianness: 'little'
+      }
     ]
   };
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'scenario1_soc.binsight-layout.json'), JSON.stringify(scenario1Layout, null, 2), 'utf8');
+  fs.writeFileSync(
+      path.join(SAMPLE_DIR, 'scenario1_soc.binsight-layout.json'), JSON.stringify(scenario1Layout, null, 2), 'utf8');
 
   // ============================================================================
   // MODE 1: Struct List (samples/fw_header_struct.bin)
@@ -109,8 +135,8 @@ function generateAllSamples() {
   // ============================================================================
   const blockSize = 8192;
   const entrySize = 72;
-  const entriesPerBlock = Math.floor(blockSize / entrySize); // 113
-  const numBlocks = 3; // 24 KB sample (339 slots total, 56B 0xAA padding at end of each 8KB block)
+  const entriesPerBlock = Math.floor(blockSize / entrySize);  // 113
+  const numBlocks = 3;  // 24 KB sample (339 slots total, 56B 0xAA padding at end of each 8KB block)
   const repBuf = Buffer.alloc(numBlocks * blockSize, 0xaa);
 
   let seq = 1000;
@@ -130,20 +156,20 @@ function generateAllSamples() {
         repBuf.writeUInt16LE(s, eOff + 2);
         repBuf.writeUInt32LE(seq++, eOff + 4);
         repBuf.writeBigUInt64LE(BigInt(1000000 + b * 50000 + s * 120), eOff + 8);
-        repBuf[eOff + 16] = s % 4 === 0 ? 0x28 : 0x2a; // READ_10 or WRITE_10
-        repBuf[eOff + 17] = 0; // LUN 0
-        repBuf.writeUInt16LE(8 * ((s % 4) + 1), eOff + 18); // XFER_LEN
+        repBuf[eOff + 16] = s % 4 === 0 ? 0x28 : 0x2a;       // READ_10 or WRITE_10
+        repBuf[eOff + 17] = 0;                               // LUN 0
+        repBuf.writeUInt16LE(8 * ((s % 4) + 1), eOff + 18);  // XFER_LEN
         repBuf.writeBigUInt64LE(BigInt(0x10000 + s * 64), eOff + 20);
         repBuf.writeBigUInt64LE(BigInt(0x80000000 + s * 4096), eOff + 28);
         repBuf.write(`BLK${b}_SLOT${s}_CMD\0`, eOff + 36, 'ascii');
       } else {
         // 0x02 IO_COMPLETE
         repBuf[eOff + 0] = 0x02;
-        repBuf[eOff + 1] = s === 21 && b === 1 ? 0x02 : 0x00; // CHECK_COND fault in Block 1 Slot 21
+        repBuf[eOff + 1] = s === 21 && b === 1 ? 0x02 : 0x00;  // CHECK_COND fault in Block 1 Slot 21
         repBuf.writeUInt16LE(s - 1, eOff + 2);
         repBuf.writeUInt32LE(seq++, eOff + 4);
         repBuf.writeBigUInt64LE(BigInt(1000050 + b * 50000 + s * 120), eOff + 8);
-        repBuf.writeUInt32LE(45 + (s % 15), eOff + 16); // LATENCY_US
+        repBuf.writeUInt32LE(45 + (s % 15), eOff + 16);  // LATENCY_US
         repBuf.writeInt32LE(0, eOff + 20);
         repBuf.writeUInt32LE(s === 21 && b === 1 ? 0x02031100 : 0, eOff + 24);
         repBuf.write(`BLK${b}_SLOT${s}_DONE\0`, eOff + 28, 'ascii');
@@ -159,45 +185,45 @@ function generateAllSamples() {
 
   // Packet 0: COMMAND UPIU (0x01, 32B) - READ(10) LBA 0x00001000, 8 blocks (4096 B)
   const p0 = Buffer.alloc(32, 0);
-  p0[0] = 0x01; // Transaction Type = COMMAND
-  p0[1] = 0x40; // Flags: R=1 (Read)
-  p0[2] = 0x00; // LUN 0
-  p0[3] = 0x1a; // Task Tag 0x1A
-  p0[4] = 0x00; // IID=0, CmdSet=SCSI
-  p0.writeUInt32BE(4096, 12); // Expected Data Transfer Length
-  p0[16] = 0x28; // CDB[0]: READ_10
-  p0.writeUInt32BE(0x00001000, 18); // LBA
-  p0.writeUInt16BE(8, 23); // Transfer Length = 8 blocks
+  p0[0] = 0x01;                      // Transaction Type = COMMAND
+  p0[1] = 0x40;                      // Flags: R=1 (Read)
+  p0[2] = 0x00;                      // LUN 0
+  p0[3] = 0x1a;                      // Task Tag 0x1A
+  p0[4] = 0x00;                      // IID=0, CmdSet=SCSI
+  p0.writeUInt32BE(4096, 12);        // Expected Data Transfer Length
+  p0[16] = 0x28;                     // CDB[0]: READ_10
+  p0.writeUInt32BE(0x00001000, 18);  // LBA
+  p0.writeUInt16BE(8, 23);           // Transfer Length = 8 blocks
   pktChunks.push(p0);
 
   // Packet 1: DATA IN UPIU (0x22, 32B header + 16B payload = 48B)
   const p1 = Buffer.alloc(48, 0);
-  p1[0] = 0x22; // Transaction Type = DATA IN
-  p1[2] = 0x00; // LUN 0
-  p1[3] = 0x1a; // Task Tag 0x1A
-  p1.writeUInt16BE(16, 10); // Data Segment Length = 16 bytes
-  p1.writeUInt32BE(0x00000000, 12); // Data Buffer Offset
-  p1.writeUInt32BE(16, 16); // Data Transfer Count
+  p1[0] = 0x22;                      // Transaction Type = DATA IN
+  p1[2] = 0x00;                      // LUN 0
+  p1[3] = 0x1a;                      // Task Tag 0x1A
+  p1.writeUInt16BE(16, 10);          // Data Segment Length = 16 bytes
+  p1.writeUInt32BE(0x00000000, 12);  // Data Buffer Offset
+  p1.writeUInt32BE(16, 16);          // Data Transfer Count
   Buffer.from('UFS_DATA_PAYLOAD').copy(p1, 32);
   pktChunks.push(p1);
 
   // Packet 2: RESPONSE UPIU (0x21, 32B) - TARGET_SUCCESS / GOOD
   const p2 = Buffer.alloc(32, 0);
-  p2[0] = 0x21; // Transaction Type = RESPONSE
-  p2[2] = 0x00; // LUN 0
-  p2[3] = 0x1a; // Task Tag 0x1A
-  p2[6] = 0x00; // Response = TARGET_SUCCESS
-  p2[7] = 0x00; // Status = GOOD
+  p2[0] = 0x21;  // Transaction Type = RESPONSE
+  p2[2] = 0x00;  // LUN 0
+  p2[3] = 0x1a;  // Task Tag 0x1A
+  p2[6] = 0x00;  // Response = TARGET_SUCCESS
+  p2[7] = 0x00;  // Status = GOOD
   pktChunks.push(p2);
 
   // Packet 3: QUERY REQUEST UPIU (0x16, 32B) - READ_DESC Device Descriptor (IDN=0x00)
   const p3 = Buffer.alloc(32, 0);
-  p3[0] = 0x16; // Transaction Type = QUERY REQUEST
-  p3[3] = 0x1b; // Task Tag 0x1B
-  p3[6] = 0x01; // Query Function = STD_READ
-  p3[12] = 0x01; // Opcode = READ_DESC
-  p3[13] = 0x00; // IDN = 0x00 (Device Descriptor)
-  p3.writeUInt16BE(0x0059, 18); // Length = 89 bytes
+  p3[0] = 0x16;                  // Transaction Type = QUERY REQUEST
+  p3[3] = 0x1b;                  // Task Tag 0x1B
+  p3[6] = 0x01;                  // Query Function = STD_READ
+  p3[12] = 0x01;                 // Opcode = READ_DESC
+  p3[13] = 0x00;                 // IDN = 0x00 (Device Descriptor)
+  p3.writeUInt16BE(0x0059, 18);  // Length = 89 bytes
   pktChunks.push(p3);
 
   fs.writeFileSync(path.join(SAMPLE_DIR, 'ufs_upiu_trace.bin'), Buffer.concat(pktChunks));
@@ -220,12 +246,9 @@ async function runTests() {
   assert.strictEqual(rRepeat.initialRepeatResult.totalSlots, 339);
   // Check Block 1 Slot 0 starts exactly at 8192 (0x2000), skipping the 56B padding of Block 0!
   const repeatSchema = rRepeat.schemas.find((s) => s.id === rRepeat.initialSchemaId);
-  const page2 = queryRepeatEntries(path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.bin'), repeatSchema, {
-    page: 0,
-    pageSize: 100,
-    blockIndex: 1,
-    hideSkipped: true
-  });
+  const page2 = queryRepeatEntries(
+      path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.bin'), repeatSchema,
+      {page: 0, pageSize: 100, blockIndex: 1, hideSkipped: true});
   assert.strictEqual(page2.entries[0].fileOffset, 8192, 'Block 1 entry 0 must start at exact 8KB boundary 0x2000');
   assert.strictEqual(page2.matchedCount, 103, 'Block 1 should have 103 non-empty entries (113 - 10 skipped 0xFF)');
   console.log('   ✔ Verified 8KB block alignment (Block 1 @ 0x2000), 56B padding skipped, and 0xFF filtering');

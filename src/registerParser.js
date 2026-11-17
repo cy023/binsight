@@ -23,7 +23,7 @@ function parseNumber(val, fallback = 0) {
 
 function parseBitRange(bitsSpec) {
   if (typeof bitsSpec === 'number') {
-    return { msb: bitsSpec, lsb: bitsSpec };
+    return {msb: bitsSpec, lsb: bitsSpec};
   }
   const str = String(bitsSpec ?? '0').trim().replace(/^\[|\]$/g, '');
   if (str.includes(':')) {
@@ -31,17 +31,17 @@ function parseBitRange(bitsSpec) {
     if (Number.isNaN(p1) || Number.isNaN(p2)) {
       throw new Error(`Invalid bit range "${bitsSpec}".`);
     }
-    return { msb: Math.max(p1, p2), lsb: Math.min(p1, p2) };
+    return {msb: Math.max(p1, p2), lsb: Math.min(p1, p2)};
   }
   const bit = parseInt(str, 10);
   if (Number.isNaN(bit)) {
     throw new Error(`Invalid bit specification "${bitsSpec}".`);
   }
-  return { msb: bit, lsb: bit };
+  return {msb: bit, lsb: bit};
 }
 
 function normalizeBitField(f) {
-  const { msb, lsb } = parseBitRange(f.bits ?? `${f.msb ?? 0}:${f.lsb ?? 0}`);
+  const {msb, lsb} = parseBitRange(f.bits ?? `${f.msb ?? 0}:${f.lsb ?? 0}`);
   const fname = String(f.name || `BIT_${msb}_${lsb}`);
   return {
     name: fname,
@@ -62,18 +62,14 @@ function normalizeBitField(f) {
 
 function normalizeFields(reg, size, index) {
   const totalBits = size * 8;
-  const rawFields = Array.isArray(reg.fields)
-    ? reg.fields
-    : Array.isArray(reg.bitfields)
-    ? reg.bitfields
-    : [
-        {
-          name: reg.name || `REG_${index}`,
-          bits: `${totalBits - 1}:0`,
-          type: reg.type || 'hex',
-          description: reg.description || ''
-        }
-      ];
+  const rawFields = Array.isArray(reg.fields) ? reg.fields :
+      Array.isArray(reg.bitfields)            ? reg.bitfields :
+                                                [{
+                                                  name: reg.name || `REG_${index}`,
+                                       bits: `${totalBits - 1}:0`,
+                                       type: reg.type || 'hex',
+                                       description: reg.description || ''
+                                     }];
   return rawFields.map(normalizeBitField).sort((a, b) => b.msb - a.msb);
 }
 
@@ -99,7 +95,7 @@ function normalizeEntryFieldList(rawFields) {
 }
 
 function normalizeDiscriminator(rawDisc, defaultMask) {
-  if (!rawDisc) return { offset: 0, size: 1, mask: defaultMask };
+  if (!rawDisc) return {offset: 0, size: 1, mask: defaultMask};
   return {
     offset: parseNumber(rawDisc.offset, 0),
     size: Math.max(1, Math.min(4, parseNumber(rawDisc.size, 1))),
@@ -134,8 +130,7 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
   }
 
   const mode = String(raw.mode || 'register-map').toLowerCase();
-  const endianness =
-    String(raw.endianness || 'little').toLowerCase().startsWith('big') ? 'big' : 'little';
+  const endianness = String(raw.endianness || 'little').toLowerCase().startsWith('big') ? 'big' : 'little';
   const baseAddress = parseNumber(raw.baseAddress, 0);
   const sourceText = typeof input === 'string' ? input : JSON.stringify(raw, null, 2);
 
@@ -166,7 +161,7 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
   if (mode === 'repeat-struct') {
     const entrySize = Math.max(1, parseNumber(raw.entrySize, 64));
     const blockSize = raw.blockSize ? parseNumber(raw.blockSize, 0) : 0;
-    const defVarRaw = raw.defaultVariant || { name: 'ENTRY', fields: raw.fields || [] };
+    const defVarRaw = raw.defaultVariant || {name: 'ENTRY', fields: raw.fields || []};
     return {
       ...baseMeta,
       blockSize,
@@ -175,11 +170,12 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
       paddingPerBlock: blockSize > 0 ? blockSize % entrySize : 0,
       byteSpan: entrySize,
       discriminator: normalizeDiscriminator(raw.discriminator, 0xff),
-      variants: normalizeVariantMap(raw.variants, 'TYPE', (v) => ({
-        skip: Boolean(v.skip),
-        summaryFields: Array.isArray(v.summaryFields) ? v.summaryFields : [],
-        fields: normalizeEntryFieldList(v.fields || [])
-      })),
+      variants: normalizeVariantMap(
+          raw.variants, 'TYPE', (v) => ({
+                                  skip: Boolean(v.skip),
+                                  summaryFields: Array.isArray(v.summaryFields) ? v.summaryFields : [],
+                                  fields: normalizeEntryFieldList(v.fields || [])
+                                })),
       defaultVariant: {
         name: String(defVarRaw.name || 'ENTRY'),
         description: String(defVarRaw.description || ''),
@@ -194,8 +190,10 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
   if (mode === 'protocol') {
     const framing = {
       headerSize: parseNumber(raw.packetFraming?.headerSize, 32),
-      ehsLenOffset: raw.packetFraming?.ehsLenOffset !== undefined ? parseNumber(raw.packetFraming.ehsLenOffset, -1) : -1,
-      dataSegLenOffset: raw.packetFraming?.dataSegLenOffset !== undefined ? parseNumber(raw.packetFraming.dataSegLenOffset, -1) : -1
+      ehsLenOffset: raw.packetFraming?.ehsLenOffset !== undefined ? parseNumber(raw.packetFraming.ehsLenOffset, -1) :
+                                                                    -1,
+      dataSegLenOffset:
+          raw.packetFraming?.dataSegLenOffset !== undefined ? parseNumber(raw.packetFraming.dataSegLenOffset, -1) : -1
     };
     return {
       ...baseMeta,
@@ -203,12 +201,14 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
       packetFraming: framing,
       byteSpan: framing.headerSize,
       discriminator: normalizeDiscriminator(raw.discriminator, 0x3f),
-      variants: normalizeVariantMap(raw.variants, 'PKT', (v) => ({
-        rows: (v.rows || []).map((r, rIdx) => ({
-          row: r.row !== undefined ? Number(r.row) : rIdx,
-          fields: (r.fields || []).map(normalizeBitField).sort((a, b) => b.msb - a.msb)
-        }))
-      }))
+      variants: normalizeVariantMap(
+          raw.variants, 'PKT',
+          (v) => ({
+            rows: (v.rows || []).map((r, rIdx) => ({
+                                       row: r.row !== undefined ? Number(r.row) : rIdx,
+                                       fields: (r.fields || []).map(normalizeBitField).sort((a, b) => b.msb - a.msb)
+                                     }))
+          }))
     };
   }
 
@@ -245,13 +245,16 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
     const count = Math.max(1, parseInt(reg.count ?? 1, 10) || 1);
     const stride = reg.stride !== undefined ? Math.max(size, parseNumber(reg.stride, size)) : size;
 
-    if (count > 1) groupMetadata.push({ name: String(reg.name || `ARR_${index}`), count });
+    if (count > 1) groupMetadata.push({name: String(reg.name || `ARR_${index}`), count});
     for (let c = 0; c < count; c++) {
       const itemOffset = baseOff + c * stride;
       autoOffset = itemOffset + size;
-      const itemName = count > 1 ? `${reg.name || `REG_${index}`}[${c}]` : String(reg.name || `REG_0x${itemOffset.toString(16).toUpperCase()}`);
+      const itemName = count > 1 ? `${reg.name || `REG_${index}`}[${c}]` :
+                                   String(reg.name || `REG_0x${itemOffset.toString(16).toUpperCase()}`);
       const desc = count > 1 ? `${reg.description || ''} (Index ${c})`.trim() : String(reg.description || '');
-      pushReg(reg, index, itemName, itemOffset, size, count > 1 ? String(reg.name || `ARR_${index}`) : null, count > 1 ? c : null, desc);
+      pushReg(
+          reg, index, itemName, itemOffset, size, count > 1 ? String(reg.name || `ARR_${index}`) : null,
+          count > 1 ? c : null, desc);
     }
   });
 
@@ -268,8 +271,9 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
       relCursor = rOff + rSize;
       return Math.max(m, relCursor);
     }, 0);
-    const grpStride = grp.stride !== undefined ? Math.max(singleSpan, parseNumber(grp.stride, singleSpan)) : Math.max(4, singleSpan);
-    groupMetadata.push({ name: grpName, count: grpCount, description: String(grp.description || '') });
+    const grpStride =
+        grp.stride !== undefined ? Math.max(singleSpan, parseNumber(grp.stride, singleSpan)) : Math.max(4, singleSpan);
+    groupMetadata.push({name: grpName, count: grpCount, description: String(grp.description || '')});
 
     for (let inst = 0; inst < grpCount; inst++) {
       const instBase = grpBaseOffset + inst * grpStride;
@@ -279,10 +283,8 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
         const size = [1, 2, 4, 8].includes(Number(reg.size)) ? Number(reg.size) : 4;
         innerCursor = relOff + size;
         pushReg(
-          reg, rIdx, `${grpName}[${inst}].${reg.name || `REG_${rIdx}`}`,
-          instBase + relOff, size, grpName, inst,
-          `${grpName}[${inst}] — ${reg.description || reg.name || ''}`.trim()
-        );
+            reg, rIdx, `${grpName}[${inst}].${reg.name || `REG_${rIdx}`}`, instBase + relOff, size, grpName, inst,
+            `${grpName}[${inst}] — ${reg.description || reg.name || ''}`.trim());
       });
     }
   });
@@ -308,13 +310,17 @@ function parseLayoutProfile(input) {
   return {
     name: String(raw.name || 'Multi-Segment Layout'),
     description: String(raw.description || ''),
-    segments: raw.segments.map((seg, idx) => ({
-      label: String(seg.label || `Segment_${idx + 1}`),
-      startOffset: parseNumber(seg.startOffset, 0),
-      hwBaseAddress: seg.hwBaseAddress !== undefined && seg.hwBaseAddress !== null ? parseNumber(seg.hwBaseAddress, null) : null,
-      schemaRef: String(seg.schema || 'builtin-sys-ctrl'),
-      endianness: seg.endianness ? (String(seg.endianness).toLowerCase().startsWith('big') ? 'big' : 'little') : null
-    }))
+    segments: raw.segments.map(
+        (seg, idx) => ({
+          label: String(seg.label || `Segment_${idx + 1}`),
+          startOffset: parseNumber(seg.startOffset, 0),
+          hwBaseAddress: seg.hwBaseAddress !== undefined && seg.hwBaseAddress !== null ?
+              parseNumber(seg.hwBaseAddress, null) :
+              null,
+          schemaRef: String(seg.schema || 'builtin-sys-ctrl'),
+          endianness: seg.endianness ? (String(seg.endianness).toLowerCase().startsWith('big') ? 'big' : 'little') :
+                                       null
+        }))
   };
 }
 
@@ -323,15 +329,11 @@ function getBuiltinSchemas() {
   if (cachedBuiltinSchemas) return cachedBuiltinSchemas;
   const schemasDir = path.join(__dirname, '..', 'schemas');
   if (!fs.existsSync(schemasDir)) return [];
-  cachedBuiltinSchemas = fs
-    .readdirSync(schemasDir)
-    .filter((f) => f.endsWith('.binsight.json'))
-    .sort()
-    .map((f) => {
-      const text = fs.readFileSync(path.join(schemasDir, f), 'utf8');
-      const raw = JSON.parse(text);
-      return parseBinsightSchema(text, raw.id || `builtin-${f}`, null);
-    });
+  cachedBuiltinSchemas = fs.readdirSync(schemasDir).filter((f) => f.endsWith('.binsight.json')).sort().map((f) => {
+    const text = fs.readFileSync(path.join(schemasDir, f), 'utf8');
+    const raw = JSON.parse(text);
+    return parseBinsightSchema(text, raw.id || `builtin-${f}`, null);
+  });
   return cachedBuiltinSchemas;
 }
 

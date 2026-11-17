@@ -77,6 +77,9 @@
           },
           {
             "filenamePattern": "*.dat"
+          },
+          {
+            "filenamePattern": "*.hex"
           }
         ],
         "priority": "default"
@@ -115,8 +118,9 @@
     ]
   },
   "scripts": {
+    "format": "clang-format -i src/*.js media/*.js media/modes/*.js scripts/test-analyzer.js",
     "package": "vsce package",
     "package:offline": "python3 scripts/package-vsix.py",
-    "install:offline": "NODE_OPTIONS=--no-deprecation code --install-extension binsight-0.1.0.vsix --force"
+    "install:offline": "python3 scripts/install-vsix.py --no-package"
   }
 }
