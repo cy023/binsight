@@ -1,5 +1,5 @@
 /**
- * Shared declarative rule evaluator for Repeat Struct (Mode 2) & Protocol Diagram (Mode 3) entries.
+ * Shared declarative rule evaluator for Record Trace & Protocol Analyze entries.
  * Rules can be attached to a variant (`variant.rules`) or schema (`schema.rules`).
  * Rule format:
  *   { name?, field?, offset?, size?, msb?, lsb?, op: 'eq'|'ne'|'gt'|'gte'|'lt'|'lte'|'bitmask_any'|'bitmask_all',

@@ -1,7 +1,7 @@
 {
   "id": "builtin-dma-engine",
   "schemaVersion": "1.0",
-  "mode": "register-map",
+  "mode": "registers",
   "name": "DMA_ENGINE_IP",
   "description": "4-Channel Scatter-Gather DMA Controller",
   "endianness": "little",

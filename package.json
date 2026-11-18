@@ -25,6 +25,7 @@
   "activationEvents": [
     "onCommand:binsight.inspectFile",
     "onCommand:binsight.inspectActiveFile",
+    "onCommand:binsight.inspectPastedHex",
     "onCustomEditor:binsight.binaryPreview"
   ],
   "main": "./src/extension.js",
@@ -32,12 +33,17 @@
     "commands": [
       {
         "command": "binsight.inspectFile",
-        "title": "Inspect Register / Binary File",
+        "title": "Inspect Binary / Hex File",
         "category": "Binsight"
       },
       {
         "command": "binsight.inspectActiveFile",
         "title": "Inspect Active File",
+        "category": "Binsight"
+      },
+      {
+        "command": "binsight.inspectPastedHex",
+        "title": "Inspect Pasted Hex / Text",
         "category": "Binsight"
       },
       {
@@ -118,9 +124,8 @@
     ]
   },
   "scripts": {
-    "format": "clang-format -i src/*.js media/*.js media/modes/*.js scripts/test-analyzer.js",
-    "package": "vsce package",
-    "package:offline": "python3 scripts/package-vsix.py",
-    "install:offline": "python3 scripts/install-vsix.py --no-package"
+    "format": "clang-format -i src/*.js media/*.js media/core/*.js media/modes/*.js media/modes/registers/*.js scripts/test-analyzer.js",
+    "package": "python3 scripts/package-vsix.py",
+    "install": "python3 scripts/install-vsix.py"
   }
 }

@@ -1,7 +1,7 @@
 {
   "id": "builtin-pcie-phy",
   "schemaVersion": "1.0",
-  "mode": "register-map",
+  "mode": "registers",
   "name": "PCIE_PHY_IP",
   "description": "High-Speed SERDES / PCIe Lane PHY Register Block",
   "endianness": "little",

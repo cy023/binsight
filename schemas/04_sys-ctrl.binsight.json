@@ -1,7 +1,7 @@
 {
   "id": "builtin-sys-ctrl",
   "schemaVersion": "1.0",
-  "mode": "register-map",
+  "mode": "registers",
   "name": "SYS_CTRL_IP",
   "description": "System Control, Clocking & Thermal Sensor IP Block",
   "endianness": "little",

@@ -1,7 +1,7 @@
 {
   "id": "builtin-sensor-be",
   "schemaVersion": "1.0",
-  "mode": "register-map",
+  "mode": "registers",
   "name": "SENSOR_TELEMETRY_BE",
   "description": "Big-Endian IMU & Environmental Sensor Packet Struct",
   "endianness": "big",

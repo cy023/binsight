@@ -18,15 +18,16 @@ const slOffsetInput = document.getElementById('sl-offset-input');
 const slEndianSelect = document.getElementById('sl-endian-select');
 const slSearchInput = document.getElementById('sl-search');
 let slBytes = (report.initialSegments && report.initialSegments[0]?.bytes) || [];
+let slBaselineBytes = null;
 
-function populateStructListSelect() {
+function populateStructViewSelect() {
   if (!slSchemaSelect) return;
-  populateModeSchemaSelect(slSchemaSelect, 'struct-list');
+  populateModeSchemaSelect(slSchemaSelect, 'struct-view');
   const active = getSchemaById(slSchemaSelect.value);
   if (active && slEndianSelect) slEndianSelect.value = active.endianness || 'little';
 }
 
-function renderStructListView() {
+function renderStructView() {
   const container = document.getElementById('sl-container');
   if (!container || !slSchemaSelect) return;
   const schema = getSchemaById(slSchemaSelect.value);
@@ -34,7 +35,7 @@ function renderStructListView() {
   const q = slSearchInput ? slSearchInput.value.trim().toLowerCase() : '';
   const baseOff = parseAddressInput(slOffsetInput?.value, 0);
 
-  const fields = schema.mode === 'struct-list' ?
+  const fields = schema.mode === 'struct-view' ?
       schema.fields || [] :
       (schema.registers ||
        []).map((r) => ({name: r.name, offset: r.offset, size: r.size, type: 'hex', description: r.description}));
@@ -52,17 +53,22 @@ function renderStructListView() {
           .map((f) => {
             const res = decodeEntryFieldValue(slBytes, f, endian);
             const absOff = baseOff + f.offset;
+            const baseRes = slBaselineBytes ? decodeEntryFieldValue(slBaselineBytes, f, endian) : null;
+            const isDiff = Boolean(baseRes && baseRes.hex !== res.hex);
             return `
-          <tr>
+          <tr class="${isDiff ? 'diff-baseline' : ''}">
             <td class="bf-mono" style="color:var(--muted);">+0x${
                 f.offset.toString(16).toUpperCase().padStart(
                     2, '0')} <span class="jump-offset-link" data-jump-file-offset="${absOff}" data-jump-length="${
-                f.size}" title="Jump to Hex Dump (@0x${absOff.toString(16).toUpperCase().padStart(4, '0')})">@0x${
+                f.size}" title="Jump to Hex Editor (@0x${absOff.toString(16).toUpperCase().padStart(4, '0')})">@0x${
                 absOff.toString(16).toUpperCase().padStart(4, '0')}</span></td>
             <td class="bf-mono">${f.size} B</td>
             <td class="bf-mono"><strong>${escapeHtml(f.name)}</strong></td>
             <td class="bf-mono">${escapeHtml(res.hex)}</td>
-            <td class="bf-mono" style="color:var(--accent);font-weight:600;">${escapeHtml(res.decoded)}</td>
+            <td class="bf-mono" style="color:var(--accent);font-weight:600;">${escapeHtml(res.decoded)}${
+                isDiff ? ` <span class="diff-badge" title="Baseline: ${escapeHtml(baseRes.decoded)}">${
+                             escapeHtml(baseRes.hex)} → ${escapeHtml(res.hex)}</span>` :
+                         ''}</td>
             <td><span class="reg-desc">${escapeHtml(f.description || '')}</span></td>
           </tr>`;
           })
@@ -85,39 +91,41 @@ function renderStructListView() {
       </table>`;
 }
 
-function requestStructListSlice(syncEndian = false) {
+function requestStructViewSlice(syncEndian = false) {
   if (!slSchemaSelect) return;
   const sch = getSchemaById(slSchemaSelect.value);
   if (syncEndian && sch && slEndianSelect) slEndianSelect.value = sch.endianness || 'little';
   vscode.postMessage({
     type: 'readSegmentSlice',
-    segmentId: '__struct_list__',
+    segmentId: '__struct_view__',
     startOffset: parseAddressInput(slOffsetInput?.value, 0),
     byteSpan: sch ? sch.byteSpan : 64
   });
 }
 
-function saveStructListState() {
+function saveStructViewState() {
   patchUiState({slSchemaId: slSchemaSelect?.value, slOffset: slOffsetInput?.value, slEndian: slEndianSelect?.value});
 }
 
-B.modes.structList = {
+let needsWorkingRefresh = false;
+
+B.modes.structView = {
   init() {
     slSchemaSelect?.addEventListener('change', () => {
-      requestStructListSlice(true);
-      saveStructListState();
+      requestStructViewSlice(true);
+      saveStructViewState();
     });
     slOffsetInput?.addEventListener('change', () => {
-      saveStructListState();
-      requestStructListSlice(false);
+      saveStructViewState();
+      requestStructViewSlice(false);
     });
     slEndianSelect?.addEventListener('change', () => {
-      saveStructListState();
-      renderStructListView();
+      saveStructViewState();
+      renderStructView();
     });
-    slSearchInput?.addEventListener('input', renderStructListView);
-    bindEditSchemaButton('sl-edit-json-btn', slSchemaSelect, 'struct_list');
-    populateStructListSelect();
+    slSearchInput?.addEventListener('input', renderStructView);
+    bindEditSchemaButton('sl-edit-json-btn', slSchemaSelect, 'struct-view');
+    populateStructViewSelect();
 
     const ui = getUiState();
     let needsReload = restoreSelectOption(slSchemaSelect, ui.slSchemaId);
@@ -126,13 +134,41 @@ B.modes.structList = {
       needsReload = true;
     }
     restoreSelectOption(slEndianSelect, ui.slEndian);
-    renderStructListView();
-    if (needsReload) requestStructListSlice(false);
+    renderStructView();
+    if (needsReload) requestStructViewSlice(false);
+  },
+  onActivate() {
+    if (needsWorkingRefresh) {
+      needsWorkingRefresh = false;
+      requestStructViewSlice(false);
+    }
   },
   handleMessage(msg) {
-    if (msg.type === 'segmentSliceData' && msg.segmentId === '__struct_list__') {
+    if (msg.type === 'workingCopySynced') {
+      needsWorkingRefresh = true;
+      if (B.getActiveTabId?.() === 'tab-struct-view') {
+        needsWorkingRefresh = false;
+        requestStructViewSlice(false);
+      }
+      return false;
+    }
+    if (msg.type === 'baselineLoaded') {
+      needsWorkingRefresh = true;
+      if (B.getActiveTabId?.() === 'tab-struct-view') {
+        needsWorkingRefresh = false;
+        requestStructViewSlice(false);
+      }
+      return false;
+    }
+    if (msg.type === 'baselineCleared') {
+      slBaselineBytes = null;
+      renderStructView();
+      return false;
+    }
+    if (msg.type === 'segmentSliceData' && msg.segmentId === '__struct_view__') {
       slBytes = (msg.bytes || []).slice();
-      renderStructListView();
+      slBaselineBytes = Array.isArray(msg.baselineBytes) ? msg.baselineBytes.slice() : null;
+      renderStructView();
       return true;
     }
     return false;

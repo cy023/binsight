@@ -1,7 +1,7 @@
 {
   "id": "builtin-repeat-72b-8k",
   "schemaVersion": "1.0",
-  "mode": "repeat-struct",
+  "mode": "record-trace",
   "name": "STORAGE_TRACE_72B (Repeat Struct)",
   "description": "72-Byte Trace Entries packed inside 8 KB (8192 B) blocks; 56 B remainder per block is padding.",
   "endianness": "little",
@@ -207,6 +207,62 @@
           "size": 1,
           "type": "hex",
           "description": "0xFF = Unused slot"
+        }
+      ]
+    },
+    "0x04": {
+      "name": "UFS_UPIU_EVENT",
+      "description": "Trace entry containing an embedded 32-byte UFS UPIU frame at offset +0x10",
+      "skip": false,
+      "summaryFields": [
+        "TIMESTAMP_US",
+        "DIR"
+      ],
+      "embeddedProtocol": {
+        "schemaId": "builtin-protocol-ufs-upiu",
+        "offset": 16,
+        "length": 32
+      },
+      "fields": [
+        {
+          "name": "TYPE",
+          "offset": 0,
+          "size": 1,
+          "type": "hex",
+          "description": "0x04 = UFS_UPIU_EVENT"
+        },
+        {
+          "name": "DIR",
+          "offset": 1,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "HOST_TO_DEV",
+            "1": "DEV_TO_HOST"
+          },
+          "description": "Transfer Direction"
+        },
+        {
+          "name": "SLOT_ID",
+          "offset": 2,
+          "size": 2,
+          "type": "uint",
+          "description": "Queue Slot ID"
+        },
+        {
+          "name": "SEQ",
+          "offset": 4,
+          "size": 4,
+          "type": "uint",
+          "description": "Sequence Number"
+        },
+        {
+          "name": "TIMESTAMP_US",
+          "offset": 8,
+          "size": 8,
+          "type": "uint",
+          "unit": "us",
+          "description": "Timestamp (us)"
         }
       ]
     }

@@ -1,0 +1,96 @@
+{
+  "id": "builtin-struct-telemetry",
+  "schemaVersion": "1.0",
+  "mode": "struct-view",
+  "name": "STORAGE_TELEMETRY_V1 (Struct View)",
+  "description": "Mixed-endian storage telemetry struct showcasing formula, bin, float, and per-field endianness",
+  "endianness": "little",
+  "structSize": 64,
+  "fields": [
+    {
+      "name": "BE_SIGNATURE",
+      "offset": "0x00",
+      "size": 4,
+      "endianness": "big",
+      "type": "hex",
+      "description": "Big-Endian magic signature (0x54454C4D)"
+    },
+    {
+      "name": "MODEL_TAG",
+      "offset": "0x04",
+      "size": 12,
+      "type": "ascii",
+      "description": "Device model ASCII string"
+    },
+    {
+      "name": "UPTIME_MS",
+      "offset": "0x10",
+      "size": 4,
+      "type": "uint",
+      "formula": "x / 1000",
+      "unit": "s",
+      "description": "Uptime converted from ms to seconds"
+    },
+    {
+      "name": "NAND_TEMP_RAW",
+      "offset": "0x14",
+      "size": 2,
+      "type": "int",
+      "formula": "(x * 0.0625) - 40",
+      "unit": "C",
+      "description": "12-bit sensor raw -> Celsius"
+    },
+    {
+      "name": "FEATURE_MASK",
+      "offset": "0x16",
+      "size": 2,
+      "type": "bin",
+      "description": "Active feature bitmask"
+    },
+    {
+      "name": "CAPACITY_BLOCKS",
+      "offset": "0x18",
+      "size": 4,
+      "type": "uint",
+      "formula": "x * 4096",
+      "unit": "B",
+      "description": "4KB blocks converted to bytes"
+    },
+    {
+      "name": "VCC_RAIL_V",
+      "offset": "0x1C",
+      "size": 4,
+      "type": "float",
+      "unit": "V",
+      "description": "Core supply voltage (IEEE 754 float32)"
+    },
+    {
+      "name": "HEALTH_STATE",
+      "offset": "0x20",
+      "size": 1,
+      "type": "enum",
+      "enums": {
+        "0": "GOOD",
+        "1": "DEGRADED",
+        "2": "CRITICAL"
+      },
+      "description": "Overall health status"
+    },
+    {
+      "name": "WEAR_LEVEL_PCT",
+      "offset": "0x21",
+      "size": 1,
+      "type": "uint",
+      "unit": "%",
+      "description": "Media wear level percentage"
+    },
+    {
+      "name": "BE_CRC16",
+      "offset": "0x22",
+      "size": 2,
+      "endianness": "big",
+      "type": "hex",
+      "description": "Big-Endian CRC-16 checksum"
+    }
+  ]
+}

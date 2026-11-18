@@ -1,18 +1,22 @@
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const {
   analyzeFile,
   readFileChunk,
   savePatchedBinary,
   searchFilePattern,
+  scanBaselineDiffs,
   queryRepeatEntries,
   scanProtocolPackets,
   hydrateLayoutFromFile,
-  walkWorkspaceFiles,
   loadSchemaFromFile,
   DEFAULT_HEX_PAGE_SIZE
 } = require('./analyzer');
+const {parseTextHexToBuffer, buildPatchOverlay, getEffectiveSize, resolveBinaryPath} = require('./binaryIo');
+const {BinsightSidebarProvider} = require('./sidebarProvider');
+const {getWebviewHtml} = require('./webviewHtml');
 
 /**
  * @param {vscode.ExtensionContext} context
@@ -79,7 +83,45 @@ function activate(context) {
     await vscode.commands.executeCommand('binsight.inspectFile');
   });
 
-  context.subscriptions.push(inspectFileCmd, inspectActiveCmd);
+  // 3b. Command: Inspect pasted hex or plain text string as a scratchpad binary
+  const inspectPastedHexCmd = vscode.commands.registerCommand('binsight.inspectPastedHex', async () => {
+    const pickedMode = await vscode.window.showQuickPick(
+        [
+          {label: 'Hex Bytes', description: 'e.g. 48 65 6C 6C 6F, 0x1234ABCD, or Intel HEX', mode: 'hex'},
+          {label: 'Plain Text (UTF-8)', description: 'Convert pasted text directly to UTF-8 bytes', mode: 'text'}
+        ],
+        {placeHolder: 'Select input format for pasted data'});
+    if (!pickedMode) return;
+
+    let clipboardPrefill = '';
+    try {
+      const clip = await vscode.env.clipboard.readText();
+      if (clip && clip.length <= 8192) {
+        if (pickedMode.mode === 'text' || /[0-9a-fA-F]{2}/.test(clip)) {
+          clipboardPrefill = pickedMode.mode === 'text' ? clip : clip.trim();
+        }
+      }
+    } catch (_) {
+    }
+    const raw = await vscode.window.showInputBox({
+      prompt: pickedMode.mode === 'text' ? 'Paste plain text (UTF-8) to inspect across all 5 Binsight modes' :
+                                           'Paste hex bytes, 0x-prefixed words, or Intel HEX to inspect',
+      placeHolder: pickedMode.mode === 'text' ? 'e.g. Hello Binsight!' : 'e.g. 48 65 6C 6C 6F or 0x1234ABCD',
+      value: clipboardPrefill,
+      ignoreFocusOut: true
+    });
+    if (!raw) return;
+    const buf = pickedMode.mode === 'text' ? Buffer.from(raw, 'utf8') : parseTextHexToBuffer(raw);
+    if (buf.length === 0) {
+      vscode.window.showWarningMessage('Binsight: No valid bytes found in pasted input.');
+      return;
+    }
+    const tempPath = path.join(os.tmpdir(), `binsight-pasted-${Date.now()}.bin`);
+    fs.writeFileSync(tempPath, buf);
+    await openBinsightPanel(context, tempPath);
+  });
+
+  context.subscriptions.push(inspectFileCmd, inspectActiveCmd, inspectPastedHexCmd);
 }
 
 /**
@@ -129,8 +171,40 @@ async function openBinsightPanel(context, filePath) {
  * Configure a WebviewPanel (either standalone or from CustomReadonlyEditorProvider)
  */
 async function setupBinsightWebview(context, panel, filePath) {
-  const fileName = path.basename(filePath);
+  let baseFilePath = filePath;
+  let workingPatchOverlay = null;
+  const tempPaths = new Set();
+  let fileName = path.basename(baseFilePath);
   let baselineFilePath = null;
+  let lastKnownSegments = [];
+
+  function sendBaselineLoaded(targetBasePath, displayName, segs) {
+    baselineFilePath = targetBasePath;
+    if (Array.isArray(segs)) lastKnownSegments = segs;
+    const segSlices = lastKnownSegments.map((s) => {
+      const c = readFileChunk(
+          baselineFilePath, Math.max(0, Number(s.startOffset) || 0), Math.max(1, Number(s.byteSpan) || 64));
+      return {segmentId: s.id, baselineBytes: c.bytes};
+    });
+    const diffSummary = scanBaselineDiffs(baseFilePath, baselineFilePath, 2000, workingPatchOverlay);
+    panel.webview.postMessage({
+      type: 'baselineLoaded',
+      baselineFileName: displayName,
+      baselineFilePath,
+      segmentSlices: segSlices,
+      diffSummary
+    });
+    vscode.window.setStatusBarMessage(
+        `$(diff) Binsight: Comparing against ${displayName} (${diffSummary.totalDiffBytes} B diff)`, 3500);
+  }
+
+  function syncWorkingCopyState() {
+    const diskSize = fs.statSync(resolveBinaryPath(baseFilePath)).size;
+    const fileSize = getEffectiveSize(diskSize, workingPatchOverlay);
+    const diffSummary =
+        baselineFilePath ? scanBaselineDiffs(baseFilePath, baselineFilePath, 2000, workingPatchOverlay) : null;
+    panel.webview.postMessage({type: 'workingCopySynced', fileSize, diffSummary});
+  }
 
   panel.webview.options = {
     enableScripts: true,
@@ -143,18 +217,26 @@ async function setupBinsightWebview(context, panel, filePath) {
       try {
         const schema = loadSchemaFromFile(doc.fileName);
         panel.webview.postMessage({type: 'schemasLoaded', schemas: [schema], targetSegmentId: null, hotReloaded: true});
-        vscode.window.setStatusBarMessage(`$(sync) Binsight: Hot-reloaded schema ${path.basename(real)}`, 3000);
+        vscode.window.setStatusBarMessage(`$(sync) Binsight: Hot-reloaded schema ${path.basename(doc.fileName)}`, 3000);
       } catch (err) {
         vscode.window.showWarningMessage(
             `Binsight Schema Validation Error in ${path.basename(doc.fileName)}: ${err.message}`);
       }
     }
   });
-  panel.onDidDispose(() => saveListener.dispose(), null, context.subscriptions);
+  panel.onDidDispose(() => {
+    saveListener.dispose();
+    for (const p of tempPaths) {
+      try {
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      } catch (_) {
+      }
+    }
+  }, null, context.subscriptions);
 
   try {
     const workspaceDirs = (vscode.workspace.workspaceFolders || []).map((f) => f.uri.fsPath);
-    const report = await analyzeFile(filePath, workspaceDirs);
+    const report = await analyzeFile(baseFilePath, workspaceDirs);
     panel.webview.html = getWebviewHtml(context, panel.webview, report);
 
     panel.webview.onDidReceiveMessage(async (msg) => {
@@ -162,7 +244,7 @@ async function setupBinsightWebview(context, panel, filePath) {
         if (msg.type === 'readSegmentSlice') {
           const startOffset = Math.max(0, Number(msg.startOffset) || 0);
           const byteSpan = Math.max(1, Number(msg.byteSpan) || 64);
-          const chunk = readFileChunk(filePath, startOffset, byteSpan);
+          const chunk = readFileChunk(baseFilePath, startOffset, byteSpan, workingPatchOverlay);
           const baseChunk = baselineFilePath ? readFileChunk(baselineFilePath, startOffset, byteSpan) : null;
           panel.webview.postMessage({
             type: 'segmentSliceData',
@@ -172,6 +254,18 @@ async function setupBinsightWebview(context, panel, filePath) {
             baselineBytes: baseChunk ? baseChunk.bytes : null
           });
         } else if (msg.type === 'loadBaselineBin') {
+          if (Array.isArray(msg.segments)) lastKnownSegments = msg.segments;
+          const choice = await vscode.window.showQuickPick(
+              [
+                {label: '$(file-binary) Compare with File...', description: 'Select a .bin / .raw / .dat / .hex file', id: 'file'},
+                {label: '$(clippy) Compare with Pasted Hex / Text...', description: 'Paste raw hex bytes or plain text as baseline', id: 'paste'}
+              ],
+              {placeHolder: 'Choose baseline source to compare against'});
+          if (!choice) return;
+          if (choice.id === 'paste') {
+            panel.webview.postMessage({type: 'openPasteModalForBaseline'});
+            return;
+          }
           const picked = await vscode.window.showOpenDialog({
             canSelectMany: false,
             openLabel: 'Select Baseline / Golden Binary (.bin) for Diff',
@@ -181,21 +275,19 @@ async function setupBinsightWebview(context, panel, filePath) {
             }
           });
           if (picked && picked.length > 0) {
-            baselineFilePath = picked[0].fsPath;
-            const segSlices = (msg.segments || []).map((s) => {
-              const c = readFileChunk(
-                  baselineFilePath, Math.max(0, Number(s.startOffset) || 0), Math.max(1, Number(s.byteSpan) || 64));
-              return {segmentId: s.id, baselineBytes: c.bytes};
-            });
-            panel.webview.postMessage({
-              type: 'baselineLoaded',
-              baselineFileName: path.basename(baselineFilePath),
-              baselineFilePath,
-              segmentSlices: segSlices
-            });
-            vscode.window.setStatusBarMessage(
-                `$(diff) Binsight: Comparing against baseline ${path.basename(baselineFilePath)}`, 3500);
+            sendBaselineLoaded(picked[0].fsPath, path.basename(picked[0].fsPath), msg.segments);
           }
+        } else if (msg.type === 'loadBaselinePasted') {
+          const isText = msg.mode === 'text';
+          const buf = isText ? Buffer.from(String(msg.text || ''), 'utf8') : parseTextHexToBuffer(msg.text || '');
+          if (buf.length === 0) {
+            vscode.window.showWarningMessage('Binsight: No valid bytes found in pasted baseline.');
+            return;
+          }
+          const baseTemp = path.join(os.tmpdir(), `binsight-base-${Date.now()}.bin`);
+          fs.writeFileSync(baseTemp, buf);
+          tempPaths.add(baseTemp);
+          sendBaselineLoaded(baseTemp, isText ? 'Pasted Text' : 'Pasted Hex', msg.segments);
         } else if (msg.type === 'clearBaselineBin') {
           baselineFilePath = null;
           panel.webview.postMessage({type: 'baselineCleared'});
@@ -203,7 +295,7 @@ async function setupBinsightWebview(context, panel, filePath) {
           let targetSchemaPath = msg.schemaFilePath;
           if (!targetSchemaPath || !fs.existsSync(targetSchemaPath)) {
             const defaultUri = vscode.Uri.file(
-                path.join(path.dirname(filePath), `${(msg.schemaName || 'custom').toLowerCase()}.binsight.json`));
+                path.join(path.dirname(baseFilePath), `${(msg.schemaName || 'custom').toLowerCase()}.binsight.json`));
             const saveUri = await vscode.window.showSaveDialog(
                 {defaultUri, saveLabel: 'Save & Edit *.binsight.json Schema', filters: {'Binsight Schema': ['json']}});
             if (!saveUri) return;
@@ -216,20 +308,45 @@ async function setupBinsightWebview(context, panel, filePath) {
           const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetSchemaPath));
           await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
         } else if (msg.type === 'queryRepeatEntries') {
-          const result = queryRepeatEntries(filePath, msg.schema, msg.options || {});
+          const result = queryRepeatEntries(
+              baseFilePath, msg.schema, {...(msg.options || {}), patchOverlay: workingPatchOverlay});
           panel.webview.postMessage({type: 'repeatEntriesResult', result});
         } else if (msg.type === 'scanProtocolPackets') {
-          const result = scanProtocolPackets(filePath, msg.schema, msg.options || {});
+          const result = scanProtocolPackets(
+              baseFilePath, msg.schema, {...(msg.options || {}), patchOverlay: workingPatchOverlay});
           panel.webview.postMessage({type: 'protocolPacketsResult', result});
         } else if (msg.type === 'loadHexPage') {
           const offset = Math.max(0, Number(msg.offset) || 0);
           const length = Number(msg.length) || DEFAULT_HEX_PAGE_SIZE;
-          const chunk = readFileChunk(filePath, offset, length);
+          const chunk = readFileChunk(baseFilePath, offset, length, workingPatchOverlay);
           const baseChunk = baselineFilePath ? readFileChunk(baselineFilePath, offset, length) : null;
           panel.webview.postMessage({type: 'hexPageData', chunk, baselineBytes: baseChunk ? baseChunk.bytes : null});
         } else if (msg.type === 'findInBinary') {
-          const result = searchFilePattern(filePath, msg.query, msg.mode, msg.startOffset);
+          const result = searchFilePattern(baseFilePath, msg.query, msg.mode, msg.startOffset, workingPatchOverlay);
           panel.webview.postMessage({type: 'findInBinaryResult', result});
+        } else if (msg.type === 'applyWorkingPatches') {
+          workingPatchOverlay = buildPatchOverlay(msg.patches || []);
+          syncWorkingCopyState();
+        } else if (msg.type === 'revertWorkingCopy') {
+          workingPatchOverlay = null;
+          syncWorkingCopyState();
+        } else if (msg.type === 'loadPastedHex') {
+          const isText = msg.mode === 'text';
+          const buf = isText ? Buffer.from(String(msg.text || ''), 'utf8') : parseTextHexToBuffer(msg.text || '');
+          if (buf.length === 0) {
+            vscode.window.showWarningMessage('Binsight: No valid bytes found in pasted input.');
+            return;
+          }
+          const pastedPath = path.join(os.tmpdir(), `binsight-pasted-${Date.now()}.bin`);
+          fs.writeFileSync(pastedPath, buf);
+          tempPaths.add(pastedPath);
+          baseFilePath = pastedPath;
+          workingPatchOverlay = null;
+          fileName = path.basename(pastedPath);
+          const newReport = await analyzeFile(baseFilePath, workspaceDirs);
+          newReport.fileName = isText ? 'Pasted Text Scratchpad' : 'Pasted Hex Scratchpad';
+          panel.title = isText ? 'Binsight: Pasted Text' : 'Binsight: Pasted Hex';
+          panel.webview.html = getWebviewHtml(context, panel.webview, newReport);
         } else if (msg.type === 'loadSchemaFromFile') {
           const picked = await vscode.window.showOpenDialog({
             canSelectMany: true,
@@ -243,8 +360,8 @@ async function setupBinsightWebview(context, panel, filePath) {
             vscode.window.setStatusBarMessage(`$(check) Binsight: Loaded ${loadedSchemas.length} schema file(s)`, 3000);
           }
         } else if (msg.type === 'saveLayoutProfile') {
-          const defaultUri =
-              vscode.Uri.file(path.join(path.dirname(filePath), `${path.parse(fileName).name}.binsight-layout.json`));
+          const defaultUri = vscode.Uri.file(
+              path.join(path.dirname(baseFilePath), `${path.parse(fileName).name}.binsight-layout.json`));
           const saveUri = await vscode.window.showSaveDialog({
             defaultUri,
             saveLabel: 'Save Multi-Segment Layout Profile',
@@ -283,7 +400,7 @@ async function setupBinsightWebview(context, panel, filePath) {
           });
           if (picked && picked.length > 0) {
             const layoutPath = picked[0].fsPath;
-            const hydrated = hydrateLayoutFromFile(layoutPath, filePath, baselineFilePath);
+            const hydrated = hydrateLayoutFromFile(layoutPath, baseFilePath, baselineFilePath, workingPatchOverlay);
             panel.webview.postMessage({
               type: 'layoutProfileHydrated',
               layout: hydrated.layout,
@@ -294,7 +411,7 @@ async function setupBinsightWebview(context, panel, filePath) {
                 `Binsight: Loaded layout "${hydrated.layout.name}" (${hydrated.hydratedSegments.length} segments)`);
           }
         } else if (msg.type === 'applyDiscoveredLayout') {
-          const hydrated = hydrateLayoutFromFile(msg.layoutFilePath, filePath, baselineFilePath);
+          const hydrated = hydrateLayoutFromFile(msg.layoutFilePath, baseFilePath, baselineFilePath, workingPatchOverlay);
           panel.webview.postMessage({
             type: 'layoutProfileHydrated',
             layout: hydrated.layout,
@@ -302,20 +419,21 @@ async function setupBinsightWebview(context, panel, filePath) {
             hydratedSegments: hydrated.hydratedSegments
           });
         } else if (msg.type === 'savePatchedBinaryAsNew') {
+          const baseDir = path.dirname(baseFilePath);
           const defaultUri =
-              vscode.Uri.file(path.join(path.dirname(filePath), `${path.parse(fileName).name}_modified.bin`));
+              vscode.Uri.file(path.join(baseDir, `${path.parse(fileName).name}_modified.bin`));
           const saveUri = await vscode.window.showSaveDialog({
             defaultUri,
             saveLabel: 'Save As New Binary (.bin)',
             filters: {'Binary Files': ['bin', 'raw', 'dat'], 'All Files': ['*']}
           });
           if (saveUri) {
-            savePatchedBinary(filePath, saveUri.fsPath, msg.patches || []);
+            savePatchedBinary(baseFilePath, saveUri.fsPath, msg.patches || [], workingPatchOverlay);
             vscode.window.showInformationMessage(`Binsight: Saved modified binary to ${path.basename(saveUri.fsPath)}`);
           }
         } else if (msg.type === 'saveRegisterReport') {
           const defaultUri =
-              vscode.Uri.file(path.join(path.dirname(filePath), `${path.parse(fileName).name}_report.txt`));
+              vscode.Uri.file(path.join(path.dirname(baseFilePath), `${path.parse(fileName).name}_report.txt`));
           const saveUri = await vscode.window.showSaveDialog({
             defaultUri,
             saveLabel: 'Export Multi-Segment Report (.txt)',
@@ -338,132 +456,6 @@ async function setupBinsightWebview(context, panel, filePath) {
   }
 }
 
-/**
- * Generate Geek / Hardware Debugger HUD HTML for Webview
- */
-function getWebviewHtml(context, webview, initialReport) {
-  const mediaDir = path.join(context.extensionPath, 'media');
-  const styleUri = webview.asWebviewUri(vscode.Uri.file(path.join(mediaDir, 'main.css')));
-  const nonce = getNonce();
-  const scriptFiles = [
-    'core.js', 'modes/registerMap.js', 'modes/structList.js', 'modes/repeatStruct.js', 'modes/protocol.js',
-    'modes/hexOverview.js', 'main.js'
-  ];
-  const scriptsHtml = scriptFiles
-                          .map((rel) => {
-                            const uri = webview.asWebviewUri(vscode.Uri.file(path.join(mediaDir, rel)));
-                            return `<script nonce="${nonce}" src="${uri}"></script>`;
-                          })
-                          .join('\n  ');
-  const serializedReport = JSON.stringify(initialReport).replace(/</g, '\\u003c');
-  const template = fs.readFileSync(path.join(mediaDir, 'webview.html'), 'utf8');
-
-  return template.replaceAll('{{CSP_SOURCE}}', webview.cspSource)
-      .replaceAll('{{NONCE}}', nonce)
-      .replaceAll('{{STYLE_URI}}', String(styleUri))
-      .replaceAll('{{TITLE_FILE_NAME}}', escapeHtml(initialReport.fileName))
-      .replaceAll('{{FILE_PATH}}', escapeHtml(initialReport.filePath))
-      .replaceAll('{{FILE_NAME}}', escapeHtml(initialReport.fileName))
-      .replaceAll('{{FORMATTED_SIZE}}', escapeHtml(initialReport.formattedSize))
-      .replaceAll('{{SERIALIZED_REPORT}}', serializedReport)
-      .replaceAll('{{SCRIPTS}}', scriptsHtml);
-}
-
-function escapeHtml(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function getNonce() {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
-}
-
-class BinsightSidebarProvider {
-  constructor() {
-    this._onDidChangeTreeData = new vscode.EventEmitter();
-    this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-    this._cache = null;
-  }
-
-  refresh() {
-    this._cache = null;
-    this._onDidChangeTreeData.fire();
-  }
-
-  getTreeItem(element) {
-    return element;
-  }
-
-  getChildren(element) {
-    const workspaceDirs = (vscode.workspace.workspaceFolders || []).map((f) => f.uri.fsPath);
-    if (!element) {
-      // Single-pass scan for all 3 categories
-      this._cache = this._scanAllWorkspaceFiles(workspaceDirs);
-
-      const openItem = new vscode.TreeItem('Open Binary File...', vscode.TreeItemCollapsibleState.None);
-      openItem.iconPath = new vscode.ThemeIcon('folder-opened');
-      openItem.command = {command: 'binsight.inspectFile', title: 'Inspect Binary File'};
-
-      const binsGroup = new vscode.TreeItem(
-          'Binary / Hex Files (.bin / .raw / .dat / .hex)', vscode.TreeItemCollapsibleState.Expanded);
-      binsGroup.contextValue = 'bins';
-
-      const schemasGroup = new vscode.TreeItem('Schemas (*.binsight.json)', vscode.TreeItemCollapsibleState.Expanded);
-      schemasGroup.contextValue = 'schemas';
-
-      const layoutsGroup =
-          new vscode.TreeItem('Layout Profiles (*.binsight-layout.json)', vscode.TreeItemCollapsibleState.Collapsed);
-      layoutsGroup.contextValue = 'layouts';
-
-      return [openItem, binsGroup, schemasGroup, layoutsGroup];
-    }
-
-    if (!this._cache) {
-      this._cache = this._scanAllWorkspaceFiles(workspaceDirs);
-    }
-    const files = this._cache[element.contextValue] || [];
-    return files.map((fPath) => {
-      const name = path.basename(fPath);
-      const item = new vscode.TreeItem(name, vscode.TreeItemCollapsibleState.None);
-      item.tooltip = fPath;
-      item.description = path.relative(workspaceDirs[0] || path.dirname(fPath), path.dirname(fPath));
-      if (element.contextValue === 'bins') {
-        item.iconPath = new vscode.ThemeIcon('file-binary');
-        item.command = {
-          command: 'binsight.inspectFile',
-          title: 'Inspect with Binsight',
-          arguments: [vscode.Uri.file(fPath)]
-        };
-      } else {
-        item.iconPath = new vscode.ThemeIcon('json');
-        item.command = {command: 'vscode.open', title: 'Open JSON', arguments: [vscode.Uri.file(fPath)]};
-      }
-      return item;
-    });
-  }
-
-  _scanAllWorkspaceFiles(roots) {
-    const out = {bins: [], schemas: [], layouts: []};
-    walkWorkspaceFiles(roots, 3, (real, fileName) => {
-      const lower = fileName.toLowerCase();
-      if (lower.endsWith('.bin') || lower.endsWith('.raw') || lower.endsWith('.dat') || lower.endsWith('.hex')) {
-        out.bins.push(real);
-      } else if (lower.endsWith('.binsight.json')) {
-        out.schemas.push(real);
-      } else if (lower.endsWith('.binsight-layout.json')) {
-        out.layouts.push(real);
-      }
-    });
-    out.bins.sort();
-    out.schemas.sort();
-    out.layouts.sort();
-    return out;
-  }
-}
 
 function deactivate() {}
 

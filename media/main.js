@@ -13,12 +13,12 @@ window.addEventListener('message', (event) => {
 const savedTab = B.getUiState?.().activeTab;
 if (savedTab && document.getElementById(savedTab)) {
   switchTab(savedTab);
-} else if (report.initialMode === 'struct-list')
-  switchTab('tab-struct-list');
-else if (report.initialMode === 'repeat-struct')
-  switchTab('tab-repeat-struct');
-else if (report.initialMode === 'protocol')
-  switchTab('tab-protocol');
+} else if (report.initialMode === 'struct-view')
+  switchTab('tab-struct-view');
+else if (report.initialMode === 'record-trace')
+  switchTab('tab-record-trace');
+else if (report.initialMode === 'protocol-analyze')
+  switchTab('tab-protocol-analyze');
 else
-  switchTab('tab-segments');
+  switchTab('tab-registers');
 })(window.Binsight);

@@ -1,47 +1,28 @@
 /**
- * Binsight v2.0 All-Modes Sample Generator & Automated Test Suite
+ * Binsight All-Modes Sample Generator & Automated Test Suite
  * Modes tested:
- *  1. Register Map (Multi-Segment + Diff + Bitfields)
- *  2. Struct List (Fixed Firmware Header Struct)
- *  3. Repeat Struct List (72B Entries in 8KB Blocks with 56B Padding & Polymorphic Types)
- *  4. Protocol Diagram (UFS UPIU Packet Stream + 32-bit/row Spec Diagram)
+ *  1. Struct View (Fixed Firmware Header Struct)
+ *  2. Record Trace (72B Entries in 8KB Blocks with 56B Padding & Polymorphic Types)
+ *  3. Protocol Analyze (UFS UPIU 12 Types + 15 SCSI CDB subVariants + Payload Schemas)
+ *  4. Registers (Multi-Segment + Diff + Bitfields)
+ *  5. Baseline Diff (Intel HEX vs Binary) & Strict Schema Mode Validation
  *
- * Run with: ELECTRON_RUN_AS_NODE=1 /usr/share/code/code scripts/test-analyzer.js
+ * Run with: node scripts/test-analyzer.js
  */
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const {analyzeFile, queryRepeatEntries, scanProtocolPackets} = require('../src/analyzer');
-const {getBuiltinSchemas} = require('../src/registerParser');
+const {analyzeFile, queryRepeatEntries, scanProtocolPackets, scanBaselineDiffs, readFileChunk} = require('../src/analyzer');
+const {buildPatchOverlay} = require('../src/binaryIo');
+const {parseBinsightSchema} = require('../src/registerParser');
 
 const ROOT = path.resolve(__dirname, '..');
 const SAMPLE_DIR = path.join(ROOT, 'samples');
 
 function generateAllSamples() {
-  if (fs.existsSync(SAMPLE_DIR)) {
-    for (const f of fs.readdirSync(SAMPLE_DIR)) {
-      const p = path.join(SAMPLE_DIR, f);
-      if (fs.statSync(p).isFile()) fs.unlinkSync(p);
-    }
-  } else {
+  if (!fs.existsSync(SAMPLE_DIR)) {
     fs.mkdirSync(SAMPLE_DIR, {recursive: true});
   }
-
-  const builtins = getBuiltinSchemas();
-  const findBuiltin = (id) => builtins.find((s) => s.id === id);
-
-  // Write canonical *.binsight.json schemas for all modes
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'sys_ctrl.binsight.json'), findBuiltin('builtin-sys-ctrl').sourceText, 'utf8');
-  fs.writeFileSync(path.join(SAMPLE_DIR, 'pcie_phy.binsight.json'), findBuiltin('builtin-pcie-phy').sourceText, 'utf8');
-  fs.writeFileSync(
-      path.join(SAMPLE_DIR, 'dma_engine.binsight.json'), findBuiltin('builtin-dma-engine').sourceText, 'utf8');
-  fs.writeFileSync(
-      path.join(SAMPLE_DIR, 'fw_header.binsight.json'), findBuiltin('builtin-struct-fw-header').sourceText, 'utf8');
-  fs.writeFileSync(
-      path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.binsight.json'), findBuiltin('builtin-repeat-72b-8k').sourceText,
-      'utf8');
-  fs.writeFileSync(
-      path.join(SAMPLE_DIR, 'ufs_upiu.binsight.json'), findBuiltin('builtin-protocol-ufs-upiu').sourceText, 'utf8');
 
   // ============================================================================
   // MODE 4 (Existing): Register Map Multi-IP SoC Crash vs Golden
@@ -86,28 +67,28 @@ function generateAllSamples() {
         label: 'SYS_CTRL_MAIN',
         startOffset: '0x0000',
         hwBaseAddress: '0x40000000',
-        schema: './sys_ctrl.binsight.json',
+        schema: '../schemas/04_sys-ctrl.binsight.json',
         endianness: 'little'
       },
       {
         label: 'PCIE_PHY_LANE0',
         startOffset: '0x0100',
         hwBaseAddress: '0x40010000',
-        schema: './pcie_phy.binsight.json',
+        schema: '../schemas/05_pcie-phy.binsight.json',
         endianness: 'little'
       },
       {
         label: 'PCIE_PHY_LANE1',
         startOffset: '0x0140',
         hwBaseAddress: '0x40011000',
-        schema: './pcie_phy.binsight.json',
+        schema: '../schemas/05_pcie-phy.binsight.json',
         endianness: 'little'
       },
       {
         label: 'DMA_ENGINE_0',
         startOffset: '0x0200',
         hwBaseAddress: '0x40020000',
-        schema: './dma_engine.binsight.json',
+        schema: '../schemas/06_dma-engine.binsight.json',
         endianness: 'little'
       }
     ]
@@ -176,6 +157,31 @@ function generateAllSamples() {
       }
     }
   }
+  // Inject 0x04 UFS_UPIU_EVENT entries in Block 0 Slots 2 & 3 (embedded 32B UPIU at +0x10)
+  const e2 = 2 * entrySize;
+  repBuf.fill(0, e2, e2 + entrySize);
+  repBuf[e2] = 0x04;
+  repBuf[e2 + 1] = 0x00;
+  repBuf.writeUInt16LE(2, e2 + 2);
+  repBuf.writeUInt32LE(1002, e2 + 4);
+  repBuf.writeBigUInt64LE(1000240n, e2 + 8);
+  repBuf[e2 + 16] = 0x01;
+  repBuf[e2 + 19] = 0x1a;
+  repBuf.writeUInt32BE(4096, e2 + 28);
+  repBuf[e2 + 32] = 0x28;
+  repBuf.writeUInt32BE(0x1000, e2 + 34);
+  repBuf.writeUInt16BE(8, e2 + 39);
+
+  const e3 = 3 * entrySize;
+  repBuf.fill(0, e3, e3 + entrySize);
+  repBuf[e3] = 0x04;
+  repBuf[e3 + 1] = 0x01;
+  repBuf.writeUInt16LE(2, e3 + 2);
+  repBuf.writeUInt32LE(1003, e3 + 4);
+  repBuf.writeBigUInt64LE(1000310n, e3 + 8);
+  repBuf[e3 + 16] = 0x21;
+  repBuf[e3 + 19] = 0x1a;
+
   fs.writeFileSync(path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.bin'), repBuf);
 
   // ============================================================================
@@ -233,14 +239,14 @@ async function runTests() {
   console.log('1. Generating All 4 Mode Sample Files in samples/...');
   generateAllSamples();
 
-  console.log('\n2. Testing Mode 1: Struct List (fw_header_struct.bin)...');
+  console.log('\n2. Testing Struct View (fw_header_struct.bin)...');
   const rStruct = await analyzeFile(path.join(SAMPLE_DIR, 'fw_header_struct.bin'), [ROOT]);
-  assert.strictEqual(rStruct.initialMode, 'struct-list');
-  console.log('   ✔ Auto-detected struct-list mode:', rStruct.initialSchemaId);
+  assert.strictEqual(rStruct.initialMode, 'struct-view');
+  console.log('   ✔ Auto-detected struct-view mode:', rStruct.initialSchemaId);
 
-  console.log('\n3. Testing Mode 2: Repeat Struct List with 8KB Padding (repeat_trace_72b_8k.bin)...');
+  console.log('\n3. Testing Record Trace with 8KB Padding (repeat_trace_72b_8k.bin)...');
   const rRepeat = await analyzeFile(path.join(SAMPLE_DIR, 'repeat_trace_72b_8k.bin'), [ROOT]);
-  assert.strictEqual(rRepeat.initialMode, 'repeat-struct');
+  assert.strictEqual(rRepeat.initialMode, 'record-trace');
   assert.strictEqual(rRepeat.initialRepeatResult.entriesPerBlock, 113);
   assert.strictEqual(rRepeat.initialRepeatResult.paddingPerBlock, 56);
   assert.strictEqual(rRepeat.initialRepeatResult.totalSlots, 339);
@@ -253,9 +259,9 @@ async function runTests() {
   assert.strictEqual(page2.matchedCount, 103, 'Block 1 should have 103 non-empty entries (113 - 10 skipped 0xFF)');
   console.log('   ✔ Verified 8KB block alignment (Block 1 @ 0x2000), 56B padding skipped, and 0xFF filtering');
 
-  console.log('\n4. Testing Mode 3: Protocol Diagram (ufs_upiu_trace.bin)...');
+  console.log('\n4. Testing Protocol Analyze (ufs_upiu_trace.bin)...');
   const rProto = await analyzeFile(path.join(SAMPLE_DIR, 'ufs_upiu_trace.bin'), [ROOT]);
-  assert.strictEqual(rProto.initialMode, 'protocol');
+  assert.strictEqual(rProto.initialMode, 'protocol-analyze');
   assert.strictEqual(rProto.initialProtocolResult.totalPackets, 4);
   assert.strictEqual(rProto.initialProtocolResult.packets[0].typeHex, '0x01');
   assert.strictEqual(rProto.initialProtocolResult.packets[1].typeHex, '0x22');
@@ -264,13 +270,47 @@ async function runTests() {
   assert.strictEqual(rProto.initialProtocolResult.packets[3].typeHex, '0x16');
   console.log('   ✔ Verified UFS UPIU 4-packet stream framing (32B CMD, 48B DATA_IN, 32B RESP, 32B QUERY)');
 
-  console.log('\n5. Testing Mode 4: Register Map (scenario1_soc_crash.bin)...');
+  console.log('\n5. Testing Registers (scenario1_soc_crash.bin)...');
   const rReg = await analyzeFile(path.join(SAMPLE_DIR, 'scenario1_soc_crash.bin'), [ROOT]);
-  assert.strictEqual(rReg.initialMode, 'register-map');
+  assert.strictEqual(rReg.initialMode, 'registers');
   assert.strictEqual(rReg.initialSegments.length, 4);
-  console.log('   ✔ Verified 4-segment SoC Register Map hydration');
+  console.log('   ✔ Verified 4-segment SoC Registers hydration');
 
-  console.log('\n✅ All 4 Binsight v2.0 modes passed!');
+  console.log('\n6. Testing Baseline Diff (fw_header_struct.bin vs fw_header_modified.hex)...');
+  const diffRes = scanBaselineDiffs(
+      path.join(SAMPLE_DIR, 'fw_header_struct.bin'), path.join(SAMPLE_DIR, 'fw_header_modified.hex'));
+  assert.strictEqual(diffRes.totalDiffBytes, 2);
+  assert.strictEqual(diffRes.regions.length, 2);
+  console.log('   ✔ Verified Intel HEX baseline diff (2 differing bytes, 2 regions)');
+
+  console.log('\n7. Testing Full UFS UPIU + SCSI CDB + Payload Schemas (ufs_upiu_full_trace.bin)...');
+  const fullTracePath = path.join(SAMPLE_DIR, 'ufs_upiu_full_trace.bin');
+  if (fs.existsSync(fullTracePath)) {
+    const upiuSchema = rProto.schemas.find((s) => s.id === 'builtin-protocol-ufs-upiu');
+    assert(upiuSchema, 'UFS UPIU builtin schema must exist');
+    assert(upiuSchema.variants['0x01']?.subVariants?.variants['0x88'], 'SCSI READ(16) subVariant must exist');
+    assert(upiuSchema.payloadSchemas['sense-data'], 'sense-data payloadSchema must exist');
+    assert(upiuSchema.payloadSchemas['desc-device'], 'desc-device payloadSchema must exist');
+    const fullScan = scanProtocolPackets(fullTracePath, upiuSchema, {});
+    assert.strictEqual(fullScan.totalPackets, 17);
+    assert(fullScan.anomalyCounts.error >= 2, 'Should flag CHECK CONDITION and REJECT anomalies');
+    console.log('   ✔ Verified 17-packet full UFS UPIU trace with SCSI subVariants & Payload schemas');
+  }
+
+  console.log('\n8. Testing Strict Schema Mode Validation...');
+  assert.throws(
+      () => parseBinsightSchema({mode: 'register-map', name: 'LEGACY', registers: []}),
+      /Unsupported Binsight schema mode/);
+  console.log('   ✔ Verified legacy mode aliases are strictly rejected');
+
+  console.log('\n9. Testing In-Memory Sparse Patch Overlay (Zero-Copy Working Copy)...');
+  const overlay = buildPatchOverlay([{startOffset: 0, bytes: [0xaa, 0xbb]}]);
+  const patchedChunk = readFileChunk(path.join(SAMPLE_DIR, 'fw_header_struct.bin'), 0, 4, overlay);
+  assert.strictEqual(patchedChunk.bytes[0], 0xaa);
+  assert.strictEqual(patchedChunk.bytes[1], 0xbb);
+  console.log('   ✔ Verified zero-copy sparse patch overlay on readFileChunk');
+
+  console.log('\n✅ All Binsight automated tests passed!');
 }
 
 runTests().catch((err) => {

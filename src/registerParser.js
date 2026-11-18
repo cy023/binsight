@@ -1,10 +1,10 @@
 /**
  * Canonical *.binsight.json Schema & *.binsight-layout.json Profile Parser (v2.0)
- * Supports 4 Inspection Modes:
- *  1. "register-map"  : Multi-segment hardware register map with bitfields & editing
- *  2. "struct-list"   : Fixed struct / header parsed as a clean tabular list
- *  3. "repeat-struct" : Paged repeated entries (e.g. 72B entries in 8KB blocks with padding & polymorphic types)
- *  4. "protocol"      : Communication packet stream + 32-bit-wide Spec Diagram (e.g. UFS UPIU)
+ * Supports 4 Schema Inspection Modes:
+ *  1. "struct-view"      : Fixed struct / header parsed as a clean tabular list
+ *  2. "record-trace"     : Paged repeated entries (e.g. 72B entries in 8KB blocks with padding & polymorphic types)
+ *  3. "protocol-analyze" : Communication packet stream + 32-bit-wide Spec Diagram (e.g. UFS UPIU)
+ *  4. "registers"        : Multi-segment hardware register map with bitfields & editing
  */
 
 const fs = require('fs');
@@ -55,6 +55,7 @@ function normalizeBitField(f) {
     valueOffset: f.valueOffset !== undefined ? Number(f.valueOffset) : 0,
     unit: f.unit ? String(f.unit) : '',
     qFormat: f.qFormat ? String(f.qFormat).toUpperCase() : null,
+    formula: f.formula ? String(f.formula) : (f.expr ? String(f.expr) : null),
     description: String(f.description || ''),
     enums: f.enums || null
   };
@@ -83,11 +84,13 @@ function normalizeEntryFieldList(rawFields) {
       name: String(f.name || `FIELD_${idx}`),
       offset,
       size,
+      endianness: f.endianness ? (String(f.endianness).toLowerCase().startsWith('big') ? 'big' : 'little') : null,
       type: String(f.type || (f.enums ? 'enum' : 'uint')).toLowerCase(),
       scale: f.scale !== undefined ? Number(f.scale) : null,
       valueOffset: f.valueOffset !== undefined ? Number(f.valueOffset) : 0,
       unit: f.unit ? String(f.unit) : '',
       qFormat: f.qFormat ? String(f.qFormat).toUpperCase() : null,
+      formula: f.formula ? String(f.formula) : (f.expr ? String(f.expr) : null),
       description: String(f.description || ''),
       enums: f.enums || null
     };
@@ -129,7 +132,11 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
     throw new Error('Invalid Binsight schema: root must be a JSON object.');
   }
 
-  const mode = String(raw.mode || 'register-map').toLowerCase();
+  const VALID_MODES = ['registers', 'struct-view', 'record-trace', 'protocol-analyze'];
+  const mode = String(raw.mode || 'registers').toLowerCase();
+  if (!VALID_MODES.includes(mode)) {
+    throw new Error(`Unsupported Binsight schema mode "${raw.mode}". Expected one of: ${VALID_MODES.join(', ')}.`);
+  }
   const endianness = String(raw.endianness || 'little').toLowerCase().startsWith('big') ? 'big' : 'little';
   const baseAddress = parseNumber(raw.baseAddress, 0);
   const sourceText = typeof input === 'string' ? input : JSON.stringify(raw, null, 2);
@@ -148,7 +155,7 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
     sourceText
   };
 
-  if (mode === 'struct-list') {
+  if (mode === 'struct-view') {
     const fields = normalizeEntryFieldList(raw.fields || []);
     const maxSpan = fields.reduce((m, f) => Math.max(m, f.offset + f.size), 0);
     return {
@@ -158,7 +165,7 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
     };
   }
 
-  if (mode === 'repeat-struct') {
+  if (mode === 'record-trace') {
     const entrySize = Math.max(1, parseNumber(raw.entrySize, 64));
     const blockSize = raw.blockSize ? parseNumber(raw.blockSize, 0) : 0;
     const defVarRaw = raw.defaultVariant || {name: 'ENTRY', fields: raw.fields || []};
@@ -174,6 +181,11 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
           raw.variants, 'TYPE', (v) => ({
                                   skip: Boolean(v.skip),
                                   summaryFields: Array.isArray(v.summaryFields) ? v.summaryFields : [],
+                                  embeddedProtocol: v.embeddedProtocol ? {
+                                    schemaId: String(v.embeddedProtocol.schemaId || 'builtin-protocol-ufs-upiu'),
+                                    offset: parseNumber(v.embeddedProtocol.offset, 0),
+                                    length: parseNumber(v.embeddedProtocol.length, 32)
+                                  } : null,
                                   fields: normalizeEntryFieldList(v.fields || [])
                                 })),
       defaultVariant: {
@@ -187,7 +199,7 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
     };
   }
 
-  if (mode === 'protocol') {
+  if (mode === 'protocol-analyze') {
     const framing = {
       headerSize: parseNumber(raw.packetFraming?.headerSize, 32),
       ehsLenOffset: raw.packetFraming?.ehsLenOffset !== undefined ? parseNumber(raw.packetFraming.ehsLenOffset, -1) :
@@ -195,24 +207,41 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
       dataSegLenOffset:
           raw.packetFraming?.dataSegLenOffset !== undefined ? parseNumber(raw.packetFraming.dataSegLenOffset, -1) : -1
     };
+    const normalizeRows = (rows) => (rows || []).map((r, rIdx) => ({
+      row: r.row !== undefined ? Number(r.row) : rIdx,
+      fields: (r.fields || []).map(normalizeBitField).sort((a, b) => b.msb - a.msb)
+    }));
+    const payloadSchemas = {};
+    if (raw.payloadSchemas && typeof raw.payloadSchemas === 'object') {
+      for (const [k, ps] of Object.entries(raw.payloadSchemas)) {
+        payloadSchemas[k] = {
+          name: String(ps.name || k),
+          endianness: ps.endianness ? String(ps.endianness).toLowerCase() : null,
+          fields: normalizeEntryFieldList(ps.fields || [])
+        };
+      }
+    }
     return {
       ...baseMeta,
       wordWidth: parseNumber(raw.wordWidth, 4),
       packetFraming: framing,
       byteSpan: framing.headerSize,
       discriminator: normalizeDiscriminator(raw.discriminator, 0x3f),
+      payloadSchemas,
       variants: normalizeVariantMap(
           raw.variants, 'PKT',
           (v) => ({
-            rows: (v.rows || []).map((r, rIdx) => ({
-                                       row: r.row !== undefined ? Number(r.row) : rIdx,
-                                       fields: (r.fields || []).map(normalizeBitField).sort((a, b) => b.msb - a.msb)
-                                     }))
+            rows: normalizeRows(v.rows),
+            payloadRef: v.payloadRef || null,
+            subVariants: v.subVariants ? {
+              discriminator: normalizeDiscriminator(v.subVariants.discriminator, 0xff),
+              variants: normalizeVariantMap(v.subVariants.variants, 'SUB', (sv) => ({rows: normalizeRows(sv.rows)}))
+            } : null
           }))
     };
   }
 
-  // MODE: register-map (Default)
+  // MODE: registers (Default)
   const rawRegs = Array.isArray(raw.registers) ? raw.registers : Array.isArray(raw.fields) ? raw.fields : [];
   const rawGroups = Array.isArray(raw.groups) ? raw.groups : [];
   if (rawRegs.length === 0 && rawGroups.length === 0) {
@@ -293,7 +322,7 @@ function parseBinsightSchema(input, idOverride = null, filePath = null) {
 
   return {
     ...baseMeta,
-    mode: 'register-map',
+    mode: 'registers',
     name: String(raw.name || 'CUSTOM_IP'),
     byteSpan: Math.max(1, maxEndOffset),
     groups: groupMetadata,

@@ -1,7 +1,7 @@
 {
   "id": "builtin-pmic-regs",
   "schemaVersion": "1.0",
-  "mode": "register-map",
+  "mode": "registers",
   "name": "PMIC_BUCK_MAP",
   "description": "8-bit I2C Power Management IC Register Map",
   "endianness": "little",

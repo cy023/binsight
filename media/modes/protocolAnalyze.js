@@ -8,6 +8,7 @@ const {
   readWordBigInt,
   extractBitfield,
   computeFieldRepresentations,
+  decodeEntryFieldValue,
   populateModeSchemaSelect,
   populateVariantFilterSelect,
   bindEditSchemaButton,
@@ -19,7 +20,8 @@ const {
   getUiState,
   patchUiState,
   restoreSelectOption,
-  escapeHtml
+  escapeHtml,
+  resolveProtocolPacketSpec
 } = B;
 
 const protoSchemaSelect = document.getElementById('proto-schema-select');
@@ -28,7 +30,6 @@ const protoTypeFilter = document.getElementById('proto-type-filter');
 const protoAnomaliesOnly = document.getElementById('proto-anomalies-only');
 const protoHideRsvd = document.getElementById('proto-hide-rsvd');
 const protoShowDetails = document.getElementById('proto-show-details');
-const protoSizeSelect = document.getElementById('proto-size-select');
 const protoEntryInput = document.getElementById('proto-entry-input');
 const protoFieldSearch = document.getElementById('proto-field-search');
 let protoResult = report.initialProtocolResult || null;
@@ -39,7 +40,7 @@ let selectedProtoField = null;
 
 function populateProtocolControls() {
   if (!protoSchemaSelect) return;
-  populateModeSchemaSelect(protoSchemaSelect, 'protocol');
+  populateModeSchemaSelect(protoSchemaSelect, 'protocol-analyze');
   populateVariantFilterSelect(protoTypeFilter, protoSchemaSelect?.value, 'All Packet Types');
 }
 
@@ -58,6 +59,99 @@ function requestProtocolScan(pageNum = 0) {
   });
 }
 
+function resolvePayloadSchema(pkt, variant, sch) {
+  if (!variant?.payloadRef || !sch?.payloadSchemas) return null;
+  const ref = variant.payloadRef;
+  if (typeof ref === 'string') return sch.payloadSchemas[ref] || null;
+  if (ref.match && Array.isArray(pkt.headerBytes)) {
+    const mOff = ref.match.offset || 0;
+    const mVal = pkt.headerBytes[mOff];
+    if (Array.isArray(ref.match.values) && !ref.match.values.includes(mVal)) {
+      return ref.default ? sch.payloadSchemas[ref.default] || null : null;
+    }
+  }
+  if (ref.byByte && Array.isArray(pkt.headerBytes)) {
+    const bVal = pkt.headerBytes[ref.byByte.offset || 0];
+    if (bVal !== undefined) {
+      const hexKey = '0x' + bVal.toString(16).toUpperCase().padStart(2, '0');
+      const targetKey = (ref.byByte.map && ref.byByte.map[hexKey]) || ref.default;
+      if (targetKey) return sch.payloadSchemas[targetKey] || null;
+    }
+  }
+  return ref.default ? sch.payloadSchemas[ref.default] || null : null;
+}
+
+function renderPayloadSection(pkt, variant, sch) {
+  if (!pkt.payloadBytes || pkt.payloadBytes.length === 0) return '';
+  const payloadBaseOff = pkt.fileOffset + (pkt.headerSize || 32);
+  const ps = resolvePayloadSchema(pkt, variant, sch);
+  const endian = ps?.endianness || sch.endianness || 'big';
+
+  let structuredHtml = '';
+  if (ps && Array.isArray(ps.fields) && ps.fields.length > 0) {
+    const rowsHtml =
+        ps.fields
+            .filter((f) => f.offset < pkt.payloadBytes.length)
+            .map((f) => {
+              const absOff = payloadBaseOff + f.offset;
+              const offHex = toHex(absOff, 4);
+              let hexStr = '';
+              let decodedStr = '';
+              if (f.type === 'utf16be') {
+                const slice = pkt.payloadBytes.slice(f.offset, Math.min(pkt.payloadBytes.length, f.offset + (f.size || 64)));
+                let chars = '';
+                for (let i = 0; i + 1 < slice.length; i += 2) {
+                  const code = (slice[i] << 8) | slice[i + 1];
+                  if (code === 0) break;
+                  chars += String.fromCharCode(code);
+                }
+                hexStr = slice.slice(0, 8).map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join(' ') +
+                    (slice.length > 8 ? ' ...' : '');
+                decodedStr = `"${chars}"`;
+              } else {
+                const res = decodeEntryFieldValue(pkt.payloadBytes, f, endian);
+                hexStr = res.hex;
+                decodedStr = res.decoded;
+              }
+              return `
+          <tr>
+            <td class="bf-mono" style="color:var(--muted);">+0x${
+                  f.offset.toString(16).toUpperCase().padStart(
+                      2, '0')} <span class="jump-offset-link" data-jump-file-offset="${absOff}" data-jump-length="${
+                  f.size || 1}" title="Jump to Hex Editor (@${offHex})">@${offHex}</span></td>
+            <td class="bf-mono"><strong>${escapeHtml(f.name)}</strong></td>
+            <td class="bf-mono">${escapeHtml(hexStr)}</td>
+            <td class="bf-mono" style="color:var(--accent);font-weight:600;">${escapeHtml(decodedStr)}</td>
+            <td><span class="reg-desc">${escapeHtml(f.description || '')}</span></td>
+          </tr>`;
+            })
+            .join('');
+    structuredHtml = `
+      <div class="term-box-hdr">Payload — ${escapeHtml(ps.name)} (${pkt.dataSegBytes} B)</div>
+      <table class="data-table">
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+  } else {
+    structuredHtml = `<div class="term-box-hdr">Payload (${pkt.dataSegBytes} B)</div>`;
+  }
+
+  const rawHexStr = pkt.payloadBytes.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+  const rawAsciiStr =
+      pkt.payloadBytes.map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.')).join('');
+
+  return `<div style="margin-top:8px;">
+    ${structuredHtml}
+    <details ${ps ? '' : 'open'} style="margin-top:6px;">
+      <summary class="hint" style="cursor:pointer;user-select:none;">Raw Payload Hex / ASCII (${
+      pkt.payloadBytes.length} B)</summary>
+      <div class="bf-mono" style="font-size:12px;color:var(--muted);word-break:break-all;margin-top:4px;">${
+      escapeHtml(rawHexStr)}</div>
+      <div class="bf-mono" style="font-size:12px;color:var(--vscode-foreground);word-break:break-all;margin-top:2px;">ASCII: ${
+      escapeHtml(rawAsciiStr)}</div>
+    </details>
+  </div>`;
+}
+
 function renderProtocolDiagram(pkt, sch) {
   const diagWrap = document.getElementById('proto-diagram-wrap');
   if (!diagWrap || !pkt) return;
@@ -68,18 +162,22 @@ function renderProtocolDiagram(pkt, sch) {
   if (!variant) {
     diagWrap.innerHTML = `
         <div class="term-box-hdr">Packet #${pkt.index} (<span class="jump-offset-link" data-jump-file-offset="${
-        pkt.fileOffset}" data-jump-length="${pkt.totalLength || 1}" title="Jump to Hex Dump (@${offHex})">@${
+        pkt.fileOffset}" data-jump-length="${pkt.totalLength || 1}" title="Jump to Hex Editor (@${offHex})">@${
         offHex}</span>) — Unknown Type ${escapeHtml(pkt.typeHex)}</div>
         <p class="hint">No diagram definition found for type ${escapeHtml(pkt.typeHex)}.</p>`;
     return;
   }
 
+  const spec = resolveProtocolPacketSpec(pkt.headerBytes, sch);
+  const activeRows = spec?.activeRows || variant.rows || [];
+  const titleText = spec?.title || variant.name;
+
   const headerHtml = `
       <div class="term-box-hdr" style="display:flex;justify-content:space-between;align-items:center;">
         <span>Packet #${pkt.index}: ${
-      escapeHtml(
-          variant.name)} (<span class="jump-offset-link" data-jump-file-offset="${pkt.fileOffset}" data-jump-length="${
-      pkt.totalLength || 1}" title="Jump to Hex Dump (@${offHex})">@${offHex}</span>, ${pkt.totalLength} B)</span>
+      escapeHtml(titleText)} (<span class="jump-offset-link" data-jump-file-offset="${
+      pkt.fileOffset}" data-jump-length="${pkt.totalLength || 1}" title="Jump to Hex Editor (@${offHex})">@${offHex}</span>, ${
+      pkt.totalLength} B)</span>
         <span class="hint">${escapeHtml(variant.description || '')}</span>
       </div>`;
 
@@ -95,7 +193,7 @@ function renderProtocolDiagram(pkt, sch) {
   const fieldQ = protoFieldSearch ? protoFieldSearch.value.trim().toLowerCase() : '';
   const allDecodedRows = [];
   const wordRowsHtml =
-      (variant.rows || [])
+      activeRows
           .map((r) => {
             const rowByteOffset = r.row * 4;
             const wordValBig = readWordBigInt(pkt.headerBytes, rowByteOffset, 4, sch.endianness || 'big');
@@ -165,13 +263,7 @@ function renderProtocolDiagram(pkt, sch) {
           })
           .join('');
 
-  const payloadHtml = pkt.payloadBytes && pkt.payloadBytes.length > 0 ? `<div style="margin-top:8px;">
-             <div class="term-box-hdr">Payload (${pkt.dataSegBytes} B)</div>
-             <div class="bf-mono" style="font-size:11px;color:var(--muted);word-break:break-all;">
-               ${pkt.payloadBytes.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')}
-             </div>
-           </div>` :
-                                                                        '';
+  const payloadHtml = renderPayloadSection(pkt, variant, sch);
 
   const showDetails = protoShowDetails ? protoShowDetails.checked : true;
   const detailsSectionHtml = showDetails ? `<div style="margin-top:8px;">
@@ -199,7 +291,7 @@ function renderProtocolView() {
   if (!listWrap || !diagWrap || !protoSchemaSelect) return;
 
   const sch = getSchemaById(protoSchemaSelect.value);
-  if (!protoResult || sch.mode !== 'protocol') {
+  if (!protoResult || sch.mode !== 'protocol-analyze') {
     listWrap.innerHTML = '<p class="hint">Select a Protocol schema (e.g. UFS_UPIU).</p>';
     diagWrap.innerHTML = '';
     return;
@@ -238,9 +330,8 @@ function renderProtocolView() {
   if (prevEntryBtn) prevEntryBtn.disabled = curGlobalMatchIdx <= 0;
   if (nextEntryBtn) nextEntryBtn.disabled = curGlobalMatchIdx + 1 >= totalMatched;
 
-  const sizeMode = protoSizeSelect ? protoSizeSelect.value : 'compact';
   diagWrap.classList.remove('size-compact', 'size-normal', 'size-large');
-  diagWrap.classList.add(`size-${sizeMode}`);
+  diagWrap.classList.add('size-compact');
 
   const listRows = packets
                        .map((pkt, idx) => {
@@ -251,7 +342,7 @@ function renderProtocolView() {
           <tr class="entry-row ${selCls} ${sevCls}" data-proto-idx="${idx}">
             <td class="bf-mono">#${pkt.index}</td>
             <td class="bf-mono"><span class="jump-offset-link" data-jump-file-offset="${
-                             pkt.fileOffset}" data-jump-length="${pkt.totalLength || 1}" title="Jump to Hex Dump (@${
+                             pkt.fileOffset}" data-jump-length="${pkt.totalLength || 1}" title="Jump to Hex Editor (@${
                              offHex})">${offHex}</span></td>
             <td class="bf-mono"><strong>${escapeHtml(pkt.variantName)}</strong></td>
             <td class="bf-mono" style="color:var(--muted);">${pkt.taskTag}</td>
@@ -305,13 +396,14 @@ function saveProtocolState() {
     protoOffset: protoOffsetInput?.value,
     protoTypeFilter: protoTypeFilter?.value,
     protoAnomaliesOnly: protoAnomaliesOnly?.checked,
-    protoSize: protoSizeSelect?.value,
     protoHideRsvd: protoHideRsvd?.checked,
     protoShowDetails: protoShowDetails?.checked
   });
 }
 
-B.modes.protocol = {
+let needsWorkingRefresh = false;
+
+B.modes.protocolAnalyze = {
   init() {
     document.getElementById('proto-list-wrap')?.addEventListener('click', (e) => {
       if (e.target.closest('[data-jump-file-offset]')) return;
@@ -369,10 +461,6 @@ B.modes.protocol = {
       const cur = (protoResult?.page ?? 0) * (protoResult?.pageSize || 100) + selectedProtoIdx;
       jumpToProtocolEntry(cur + 1);
     });
-    protoSizeSelect?.addEventListener('change', () => {
-      saveProtocolState();
-      renderProtocolView();
-    });
     protoShowDetails?.addEventListener('change', () => {
       saveProtocolState();
       renderProtocolView();
@@ -381,7 +469,7 @@ B.modes.protocol = {
       saveProtocolState();
       renderProtocolView();
     });
-    bindEditSchemaButton('proto-edit-json-btn', protoSchemaSelect, 'protocol');
+    bindEditSchemaButton('proto-edit-json-btn', protoSchemaSelect, 'protocol-analyze');
     initSplitResizer('proto-resizer', '--proto-list-w', false, 180, 560);
     populateProtocolControls();
 
@@ -403,7 +491,6 @@ B.modes.protocol = {
       protoAnomaliesOnly.checked = ui.protoAnomaliesOnly;
       needsScan = true;
     }
-    restoreSelectOption(protoSizeSelect, ui.protoSize);
     if (typeof ui.protoHideRsvd === 'boolean' && protoHideRsvd) protoHideRsvd.checked = ui.protoHideRsvd;
     if (typeof ui.protoShowDetails === 'boolean' && protoShowDetails) protoShowDetails.checked = ui.protoShowDetails;
 
@@ -420,7 +507,21 @@ B.modes.protocol = {
       block: 'nearest'
     });
   },
+  onActivate() {
+    if (needsWorkingRefresh) {
+      needsWorkingRefresh = false;
+      requestProtocolScan(protoPage);
+    }
+  },
   handleMessage(msg) {
+    if (msg.type === 'workingCopySynced') {
+      needsWorkingRefresh = true;
+      if (B.getActiveTabId?.() === 'tab-protocol-analyze') {
+        needsWorkingRefresh = false;
+        requestProtocolScan(protoPage);
+      }
+      return false;
+    }
     if (msg.type === 'protocolPacketsResult' && msg.result) {
       protoResult = msg.result;
       selectedProtoIdx = pendingSelectMatchIdx !== null ? pendingSelectMatchIdx : 0;

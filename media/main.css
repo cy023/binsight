@@ -24,7 +24,7 @@ body {
   color: var(--vscode-foreground);
   background-color: var(--vscode-editor-background);
   font-family: var(--vscode-font-family, sans-serif);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -64,7 +64,7 @@ body {
   border-bottom: 2px solid transparent;
   padding: 5px 10px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -81,12 +81,12 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .hud-chip {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   background: rgba(128, 128, 128, 0.12);
   padding: 1px 7px;
@@ -99,7 +99,7 @@ body {
 }
 
 .hud-status {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--muted);
   padding: 2px 8px;
   border-radius: 4px;
@@ -215,19 +215,33 @@ body {
 }
 
 input[type="text"],
-input[type="number"],
-select {
+input[type="number"] {
   background: var(--vscode-input-background, #3c3c3c);
   color: var(--vscode-input-foreground, #cccccc);
   border: 1px solid var(--vscode-input-border, var(--border-color));
   border-radius: 3px;
   padding: 3px 7px;
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--font-mono);
   width: auto;
   min-width: 48px;
   max-width: 280px;
   field-sizing: content;
+}
+
+select {
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  border: 1px solid var(--vscode-input-border, var(--border-color));
+  border-radius: 3px;
+  padding: 4px 24px 4px 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  font-family: var(--font-mono);
+  width: auto;
+  min-width: 64px;
+  max-width: 360px;
+  text-overflow: ellipsis;
 }
 
 input[type="text"]:focus,
@@ -242,7 +256,7 @@ select:focus {
   border: 1px solid var(--border-color);
   border-radius: 3px;
   padding: 3px 9px;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -275,7 +289,7 @@ select:focus {
   gap: 5px;
   cursor: pointer;
   padding: 2px 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--vscode-foreground);
   user-select: none;
 }
@@ -300,7 +314,7 @@ select:focus {
 
 .seg-nav-pill {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   padding: 2px 10px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
@@ -330,7 +344,7 @@ select:focus {
 
 .grp-pill {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   padding: 2px 8px;
   border-radius: 3px;
   border: 1px solid var(--border-color);
@@ -376,7 +390,7 @@ select:focus {
   background: transparent !important;
   border-color: transparent !important;
   font-weight: 600;
-  font-size: 13px !important;
+  font-size: 14px !important;
   padding: 2px 4px !important;
   width: 140px;
 }
@@ -392,14 +406,14 @@ select:focus {
   align-items: center;
   gap: 3px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
 .addr-box input {
   width: 68px;
   padding: 2px 5px;
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .addr-box.hw-box input {
@@ -454,7 +468,7 @@ select:focus {
 
 .hw-addr-pill {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--accent);
   cursor: pointer;
 }
@@ -466,18 +480,18 @@ select:focus {
 .file-off-sub {
   font-family: var(--font-mono);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .reg-name {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .reg-access-tag {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--muted);
   border: 1px solid var(--border-color);
   border-radius: 3px;
@@ -486,12 +500,12 @@ select:focus {
 
 .reg-desc {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .diff-badge {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 3px;
   background: rgba(241, 76, 76, 0.14);
@@ -500,7 +514,7 @@ select:focus {
 
 .reset-diff-badge {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 3px;
   background: rgba(204, 167, 0, 0.14);
@@ -522,7 +536,7 @@ select:focus {
 
 .reg-word-display {
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 13.5px;
   padding: 1px 6px;
   background: rgba(128, 128, 128, 0.1);
   border-radius: 3px;
@@ -573,14 +587,14 @@ select:focus {
 
 .bit-idx {
   display: block;
-  font-size: 8.5px;
+  font-size: 10px;
   color: var(--muted);
   line-height: 1.05;
 }
 
 .bit-val {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
 }
@@ -602,7 +616,7 @@ select:focus {
 .bf-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 4px;
 }
 
@@ -640,7 +654,7 @@ select:focus {
 
 .raw-val-pill {
   display: inline-block;
-  font-size: 11.5px;
+  font-size: 12.5px;
   padding: 0 6px;
   border-radius: 3px;
   background: rgba(128, 128, 128, 0.1);
@@ -657,7 +671,7 @@ select:focus {
   display: inline-block;
   padding: 0 6px;
   border-radius: 3px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   background: rgba(78, 201, 176, 0.14);
   color: var(--ok);
   font-weight: 600;
@@ -668,7 +682,7 @@ select:focus {
   display: inline-block;
   padding: 0 6px;
   border-radius: 3px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   background: rgba(55, 148, 255, 0.14);
   color: var(--accent);
   font-weight: 600;
@@ -680,7 +694,7 @@ select:focus {
 }
 
 .bf-enum-select {
-  max-width: 165px;
+  max-width: 240px;
 }
 
 /* Hex Dump & Sidebar */
@@ -694,7 +708,7 @@ select:focus {
 
 .term-box-hdr {
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 13.5px;
   margin-bottom: 8px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-color);
@@ -729,7 +743,7 @@ select:focus {
   display: flex;
   white-space: pre;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   padding: 4px 8px;
@@ -737,15 +751,15 @@ select:focus {
   user-select: none;
 }
 
-.col-offset { width: 88px; flex-shrink: 0; }
+.col-offset { width: 96px; flex-shrink: 0; }
 .col-hex { flex-shrink: 0; margin-right: 14px; }
 .col-ascii { flex: 1; }
 
 .hex-rows {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
-  max-height: 540px;
+  max-height: min(540px, 65vh);
   overflow-y: auto;
   padding: 4px 8px;
 }
@@ -801,9 +815,19 @@ select:focus {
 }
 
 .hb.diff-baseline, .ab.diff-baseline {
+  background: rgba(241, 76, 76, 0.22);
   border-bottom: 2px solid var(--diff);
+  border-radius: 2px;
   color: var(--diff) !important;
   opacity: 1 !important;
+  font-weight: 600;
+}
+
+tr.diff-baseline td {
+  background: rgba(241, 76, 76, 0.09);
+}
+tr.diff-baseline td:first-child {
+  border-left: 3px solid var(--diff);
 }
 
 .anomaly-bar {
@@ -824,7 +848,7 @@ select:focus {
 
 .pin-btn {
   padding: 1px 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -864,7 +888,7 @@ select:focus {
 .kv-table td {
   padding: 4px 6px;
   border-bottom: 1px solid var(--border-color);
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .kv-table tr:last-child td {
@@ -888,7 +912,7 @@ select:focus {
   gap: 6px;
   padding: 4px 0;
   border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .hash-row:last-child {
@@ -903,7 +927,7 @@ select:focus {
 
 .hash-val {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -912,24 +936,24 @@ select:focus {
 
 .hint {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   margin: 2px 0 6px 0;
 }
 
 /* ============================================================================
-   Mode 1: Struct List Table
+   Struct View Table
    ============================================================================ */
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .data-table th {
   text-align: left;
   color: var(--muted);
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: 11.5px;
   padding: 3px 6px;
   border-bottom: 1px solid var(--border-color);
   user-select: none;
@@ -954,7 +978,7 @@ select:focus {
 }
 
 /* ============================================================================
-   Mode 2: Repeat Struct List (Compact Master + On-Demand Resizable Side Detail)
+   Record Trace (Compact Master + On-Demand Resizable Side Detail)
    ============================================================================ */
 .repeat-layout {
   display: grid;
@@ -1028,7 +1052,7 @@ select:focus {
 }
 
 /* ============================================================================
-   Mode 3: Communication Protocol Diagram (Resizable Split + 32-bit Spec Diagram)
+   Protocol Analyze (Resizable Split + 32-bit Spec Diagram)
    ============================================================================ */
 .proto-layout {
   display: grid;
@@ -1085,12 +1109,12 @@ select:focus {
 }
 
 .size-compact .proto-fld-name {
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .size-compact .proto-fld-val,
 .size-compact .proto-fld-enum {
-  font-size: 9px;
+  font-size: 10.5px;
 }
 
 .size-large .proto-spec-grid {
@@ -1102,11 +1126,11 @@ select:focus {
 }
 
 .size-large .proto-fld-name {
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .size-large .proto-fld-val {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .proto-ruler-row {
@@ -1114,7 +1138,7 @@ select:focus {
   grid-template-columns: 48px repeat(4, 1fr);
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--muted);
   text-align: center;
 }
@@ -1127,7 +1151,7 @@ select:focus {
 .proto-bit-ticks {
   display: flex;
   justify-content: space-between;
-  font-size: 8.5px;
+  font-size: 10px;
   padding: 0 3px;
   opacity: 0.7;
 }
@@ -1147,7 +1171,7 @@ select:focus {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--muted);
   background: var(--bg-card);
   border-right: 1px solid var(--border-color);
@@ -1187,7 +1211,7 @@ select:focus {
 }
 
 .proto-fld-name {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -1196,7 +1220,7 @@ select:focus {
 }
 
 .proto-fld-val {
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--accent);
   white-space: nowrap;
   overflow: hidden;
@@ -1205,7 +1229,7 @@ select:focus {
 }
 
 .proto-fld-enum {
-  font-size: 9.5px;
+  font-size: 11px;
   color: var(--ok);
   white-space: nowrap;
   overflow: hidden;
@@ -1213,7 +1237,7 @@ select:focus {
   max-width: 100%;
 }
 
-/* Rule Severity Highlights (Repeat Struct & Protocol Diagram) */
+/* Rule Severity Highlights (Record Trace & Protocol Analyze) */
 .entry-row.sev-error {
   background: rgba(244, 71, 71, 0.12);
   box-shadow: inset 3px 0 0 #f44747;
@@ -1235,7 +1259,7 @@ select:focus {
 .rule-hit {
   padding: 4px 7px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--vscode-editor-font-family, monospace);
 }
 .rule-hit.sev-error {
@@ -1249,4 +1273,87 @@ select:focus {
 .rule-hit.sev-info {
   background: rgba(55, 148, 255, 0.12);
   border-left: 3px solid #3794ff;
+}
+
+/* Modal & Paste Hex Scratchpad */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-backdrop.hidden {
+  display: none;
+}
+.modal-card {
+  width: min(640px, 92vw);
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+.modal-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.paste-hex-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 13px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  padding: 8px;
+  resize: vertical;
+}
+.modal-ftr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tab-btn.dirty::after {
+  content: ' ●';
+  font-size: 10.5px;
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+/* Responsive Small-Screen & High-Zoom Ergonomics */
+.term-box,
+.bit-grid-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.reg-desc,
+.kv-table td.v,
+.data-table td {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 960px) {
+  body {
+    padding: 8px 10px 20px 10px;
+  }
+  .hud-bar {
+    gap: 6px;
+    padding: 4px 0;
+  }
+  .tab-btn {
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 820px) {
+  .hud-bar {
+    position: static;
+  }
 }

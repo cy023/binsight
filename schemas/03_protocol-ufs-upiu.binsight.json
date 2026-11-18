@@ -1,15 +1,15 @@
 {
   "id": "builtin-protocol-ufs-upiu",
   "schemaVersion": "1.0",
-  "mode": "protocol",
+  "mode": "protocol-analyze",
   "name": "UFS_UPIU (Protocol Diagram)",
   "description": "JEDEC UFS Protocol Information Unit (UPIU) — Big-Endian 32-bit/row Packet Diagram",
   "endianness": "big",
   "wordWidth": 4,
   "packetFraming": {
     "headerSize": 32,
-    "ehsLenOffset": 10,
-    "dataSegLenOffset": 9
+    "ehsLenOffset": 8,
+    "dataSegLenOffset": 10
   },
   "discriminator": {
     "offset": 0,
@@ -17,6 +17,180 @@
     "mask": "0x3F"
   },
   "variants": {
+    "0x00": {
+      "name": "NOP OUT UPIU (0x00)",
+      "description": "Host-to-Device No-Operation Out (Link Ping)",
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Direction"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "0": "NOP_OUT (0x00)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "UPIU Flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Reserved",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Reserved",
+              "reserved": true
+            },
+            {
+              "name": "Reserved",
+              "bits": "7:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "Extra Header Segment length (32-bit units)"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Data segment length in bytes"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ]
+    },
     "0x01": {
       "name": "COMMAND UPIU (0x01)",
       "description": "Host-to-Device SCSI/UFS Command UPIU (32B Header + Optional CDB)",
@@ -153,10 +327,21 @@
               "bits": "31:24",
               "type": "enum",
               "enums": {
+                "0": "TEST UNIT READY (0x00)",
+                "3": "REQUEST SENSE (0x03)",
                 "18": "INQUIRY (0x12)",
-                "37": "READ_CAP_10 (0x25)",
-                "40": "READ_10 (0x28)",
-                "42": "WRITE_10 (0x2A)"
+                "26": "MODE SENSE(6) (0x1A)",
+                "27": "START STOP UNIT (0x1B)",
+                "37": "READ CAPACITY(10) (0x25)",
+                "40": "READ(10) (0x28)",
+                "42": "WRITE(10) (0x2A)",
+                "53": "SYNCHRONIZE CACHE(10) (0x35)",
+                "66": "UNMAP (0x42)",
+                "90": "MODE SENSE(10) (0x5A)",
+                "136": "READ(16) (0x88)",
+                "138": "WRITE(16) (0x8A)",
+                "158": "READ CAPACITY(16) (0x9E)",
+                "160": "REPORT LUNS (0xA0)"
               },
               "description": "SCSI Opcode"
             },
@@ -231,11 +416,1479 @@
             }
           ]
         }
-      ]
+      ],
+      "subVariants": {
+        "discriminator": {
+          "offset": 16,
+          "size": 1,
+          "mask": "0xFF"
+        },
+        "variants": {
+          "0x00": {
+            "name": "TEST UNIT READY (0x00)",
+            "description": "6-byte SCSI Test Unit Ready CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "0": "TEST UNIT READY (0x00)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "23:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:24",
+                    "type": "uint",
+                    "unit": "B",
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[5] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x03": {
+            "name": "REQUEST SENSE (0x03)",
+            "description": "6-byte SCSI Request Sense CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "3": "REQUEST SENSE (0x03)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "DESC",
+                    "bits": "16:16",
+                    "type": "uint",
+                    "description": "Descriptor format sense data"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "23:17",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Allocation Length",
+                    "bits": "31:24",
+                    "type": "uint",
+                    "unit": "B",
+                    "description": "Max sense data bytes"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[5] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x12": {
+            "name": "INQUIRY (0x12)",
+            "description": "6-byte SCSI Inquiry CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "18": "INQUIRY (0x12)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "23:17",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "EVPD",
+                    "bits": "16:16",
+                    "type": "uint",
+                    "description": "Enable Vital Product Data"
+                  },
+                  {
+                    "name": "Page Code",
+                    "bits": "15:8",
+                    "type": "hex",
+                    "description": "VPD Page Code"
+                  },
+                  {
+                    "name": "AllocLen[15:8]",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Allocation Length MSB"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "AllocLen[7:0]",
+                    "bits": "31:24",
+                    "type": "uint",
+                    "unit": "B",
+                    "description": "Allocation Length LSB"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[5] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x1A": {
+            "name": "MODE SENSE(6) (0x1A)",
+            "description": "6-byte SCSI Mode Sense CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "26": "MODE SENSE(6) (0x1A)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "DBD",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Disable Block Descriptors"
+                  },
+                  {
+                    "name": "PC",
+                    "bits": "15:14",
+                    "type": "uint",
+                    "description": "Page Control"
+                  },
+                  {
+                    "name": "Page Code",
+                    "bits": "13:8",
+                    "type": "hex",
+                    "description": "Mode Page Code"
+                  },
+                  {
+                    "name": "Subpage Code",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Subpage Code"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Allocation Length",
+                    "bits": "31:24",
+                    "type": "uint",
+                    "unit": "B",
+                    "description": "Allocation Length"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[5] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x1B": {
+            "name": "START STOP UNIT (0x1B)",
+            "description": "6-byte SCSI Start Stop Unit CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "27": "START STOP UNIT (0x1B)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "IMMED",
+                    "bits": "16:16",
+                    "type": "uint",
+                    "description": "Immediate"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Power Condition",
+                    "bits": "31:28",
+                    "type": "hex",
+                    "description": "Power Condition"
+                  },
+                  {
+                    "name": "NO_FLUSH",
+                    "bits": "26:26",
+                    "type": "uint",
+                    "description": "No Flush"
+                  },
+                  {
+                    "name": "LOEJ",
+                    "bits": "25:25",
+                    "type": "uint",
+                    "description": "Load Eject"
+                  },
+                  {
+                    "name": "START",
+                    "bits": "24:24",
+                    "type": "uint",
+                    "description": "Start/Stop"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x25": {
+            "name": "READ CAPACITY(10) (0x25)",
+            "description": "10-byte SCSI Read Capacity CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "37": "READ CAPACITY(10) (0x25)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "LBA[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Logical Block Address"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "Logical Block Address"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "PMI",
+                    "bits": "24:24",
+                    "type": "uint",
+                    "description": "Partial Medium Indicator"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x28": {
+            "name": "READ(10) (0x28)",
+            "description": "10-byte SCSI READ(10) CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "40": "READ(10) (0x28)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "RDPROTECT",
+                    "bits": "23:21",
+                    "type": "uint",
+                    "description": "Protection"
+                  },
+                  {
+                    "name": "DPO",
+                    "bits": "20:20",
+                    "type": "uint",
+                    "description": "Disable Page Out"
+                  },
+                  {
+                    "name": "FUA",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Force Unit Access"
+                  },
+                  {
+                    "name": "RARC",
+                    "bits": "18:18",
+                    "type": "uint",
+                    "description": "Rebuild Assist Recovery Control"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "17:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "LBA[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Logical Block Address (Upper 16 bits)"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "Logical Block Address (Lower 16 bits)"
+                  },
+                  {
+                    "name": "Group Number",
+                    "bits": "15:8",
+                    "type": "uint",
+                    "description": "CDB[6] Group Number"
+                  },
+                  {
+                    "name": "TransferLen[15:8]",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Transfer Length MSB"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "TransferLen[7:0]",
+                    "bits": "31:24",
+                    "type": "hex",
+                    "description": "Transfer Length LSB"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[9] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x2A": {
+            "name": "WRITE(10) (0x2A)",
+            "description": "10-byte SCSI WRITE(10) CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "42": "WRITE(10) (0x2A)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "WRPROTECT",
+                    "bits": "23:21",
+                    "type": "uint",
+                    "description": "Protection"
+                  },
+                  {
+                    "name": "DPO",
+                    "bits": "20:20",
+                    "type": "uint",
+                    "description": "Disable Page Out"
+                  },
+                  {
+                    "name": "FUA",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Force Unit Access"
+                  },
+                  {
+                    "name": "RARC",
+                    "bits": "18:18",
+                    "type": "uint",
+                    "description": "Rebuild Assist Recovery Control"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "17:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "LBA[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Logical Block Address (Upper 16 bits)"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "Logical Block Address (Lower 16 bits)"
+                  },
+                  {
+                    "name": "Group Number",
+                    "bits": "15:8",
+                    "type": "uint",
+                    "description": "CDB[6] Group Number"
+                  },
+                  {
+                    "name": "TransferLen[15:8]",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Transfer Length MSB"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "TransferLen[7:0]",
+                    "bits": "31:24",
+                    "type": "hex",
+                    "description": "Transfer Length LSB"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[9] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x35": {
+            "name": "SYNCHRONIZE CACHE(10) (0x35)",
+            "description": "10-byte SCSI SYNCHRONIZE CACHE(10) CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "53": "SYNCHRONIZE CACHE(10) (0x35)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "SYNC_NV",
+                    "bits": "23:21",
+                    "type": "uint",
+                    "description": "Protection"
+                  },
+                  {
+                    "name": "DPO",
+                    "bits": "20:20",
+                    "type": "uint",
+                    "description": "Disable Page Out"
+                  },
+                  {
+                    "name": "FUA",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Force Unit Access"
+                  },
+                  {
+                    "name": "RARC",
+                    "bits": "18:18",
+                    "type": "uint",
+                    "description": "Rebuild Assist Recovery Control"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "17:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "LBA[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Logical Block Address (Upper 16 bits)"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "Logical Block Address (Lower 16 bits)"
+                  },
+                  {
+                    "name": "Group Number",
+                    "bits": "15:8",
+                    "type": "uint",
+                    "description": "CDB[6] Group Number"
+                  },
+                  {
+                    "name": "TransferLen[15:8]",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Transfer Length MSB"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "TransferLen[7:0]",
+                    "bits": "31:24",
+                    "type": "hex",
+                    "description": "Transfer Length LSB"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "CDB[9] Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x42": {
+            "name": "UNMAP (0x42)",
+            "description": "10-byte SCSI UNMAP CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "66": "UNMAP (0x42)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "ANCHOR",
+                    "bits": "16:16",
+                    "type": "uint",
+                    "description": "Anchor"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "Group Number",
+                    "bits": "15:8",
+                    "type": "uint",
+                    "description": "Group Number"
+                  },
+                  {
+                    "name": "ParamLen[15:8]",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Parameter List Length MSB"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "ParamLen[7:0]",
+                    "bits": "31:24",
+                    "type": "hex",
+                    "description": "Parameter List Length LSB"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x5A": {
+            "name": "MODE SENSE(10) (0x5A)",
+            "description": "10-byte SCSI Mode Sense CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "90": "MODE SENSE(10) (0x5A)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "LLBAA",
+                    "bits": "20:20",
+                    "type": "uint",
+                    "description": "Long LBA Accepted"
+                  },
+                  {
+                    "name": "DBD",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Disable Block Descriptors"
+                  },
+                  {
+                    "name": "PC",
+                    "bits": "15:14",
+                    "type": "uint",
+                    "description": "Page Control"
+                  },
+                  {
+                    "name": "Page Code",
+                    "bits": "13:8",
+                    "type": "hex",
+                    "description": "Page Code"
+                  },
+                  {
+                    "name": "Subpage Code",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Subpage Code"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:8",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "AllocLen[15:8]",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Allocation Length MSB"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "AllocLen[7:0]",
+                    "bits": "31:24",
+                    "type": "hex",
+                    "description": "Allocation Length LSB"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "23:16",
+                    "type": "hex",
+                    "description": "Control"
+                  },
+                  {
+                    "name": "Unused",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Unused"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x88": {
+            "name": "READ(16) (0x88)",
+            "description": "16-byte SCSI READ(16) CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "136": "READ(16) (0x88)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "RDPROTECT",
+                    "bits": "23:21",
+                    "type": "uint",
+                    "description": "Protection"
+                  },
+                  {
+                    "name": "DPO",
+                    "bits": "20:20",
+                    "type": "uint",
+                    "description": "Disable Page Out"
+                  },
+                  {
+                    "name": "FUA",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Force Unit Access"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "18:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "LBA[63:48]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "LBA bits [63:48]"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[47:16]",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "description": "LBA bits [47:16]"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "LBA bits [15:0]"
+                  },
+                  {
+                    "name": "TransferLen[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Transfer Length [31:16]"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "TransferLen[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "Transfer Length [15:0]"
+                  },
+                  {
+                    "name": "Group Number",
+                    "bits": "15:8",
+                    "type": "uint",
+                    "description": "CDB[14] Group Number"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "CDB[15] Control"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x8A": {
+            "name": "WRITE(16) (0x8A)",
+            "description": "16-byte SCSI WRITE(16) CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "138": "WRITE(16) (0x8A)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "WRPROTECT",
+                    "bits": "23:21",
+                    "type": "uint",
+                    "description": "Protection"
+                  },
+                  {
+                    "name": "DPO",
+                    "bits": "20:20",
+                    "type": "uint",
+                    "description": "Disable Page Out"
+                  },
+                  {
+                    "name": "FUA",
+                    "bits": "19:19",
+                    "type": "uint",
+                    "description": "Force Unit Access"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "18:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "LBA[63:48]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "LBA bits [63:48]"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[47:16]",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "description": "LBA bits [47:16]"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "LBA bits [15:0]"
+                  },
+                  {
+                    "name": "TransferLen[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Transfer Length [31:16]"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "TransferLen[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "Transfer Length [15:0]"
+                  },
+                  {
+                    "name": "Group Number",
+                    "bits": "15:8",
+                    "type": "uint",
+                    "description": "CDB[14] Group Number"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "CDB[15] Control"
+                  }
+                ]
+              }
+            ]
+          },
+          "0x9E": {
+            "name": "READ CAPACITY(16) (0x9E)",
+            "description": "16-byte SCSI Read Capacity(16) CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "158": "READ CAPACITY(16) (0x9E)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "Service Action",
+                    "bits": "20:16",
+                    "type": "hex",
+                    "description": "0x10 = READ CAPACITY(16)"
+                  },
+                  {
+                    "name": "LBA[63:48]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "LBA"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "LBA[47:16]",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "description": "LBA"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "LBA[15:0]",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "description": "LBA"
+                  },
+                  {
+                    "name": "AllocLen[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Allocation Length"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "AllocLen[15:0]",
+                    "bits": "31:16",
+                    "type": "uint",
+                    "unit": "B",
+                    "description": "Allocation Length"
+                  },
+                  {
+                    "name": "PMI",
+                    "bits": "8:8",
+                    "type": "uint",
+                    "description": "Partial Medium Indicator"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Control"
+                  }
+                ]
+              }
+            ]
+          },
+          "0xA0": {
+            "name": "REPORT LUNS (0xA0)",
+            "description": "12-byte SCSI Report LUNs CDB",
+            "rows": [
+              {
+                "row": 4,
+                "fields": [
+                  {
+                    "name": "Opcode",
+                    "bits": "31:24",
+                    "type": "enum",
+                    "enums": {
+                      "160": "REPORT LUNS (0xA0)"
+                    },
+                    "description": "SCSI Operation Code (CDB[0])"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "23:8",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "Select Report",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Select Report"
+                  }
+                ]
+              },
+              {
+                "row": 5,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:16",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "AllocLen[31:16]",
+                    "bits": "15:0",
+                    "type": "hex",
+                    "description": "Allocation Length [31:16]"
+                  }
+                ]
+              },
+              {
+                "row": 6,
+                "fields": [
+                  {
+                    "name": "AllocLen[15:0]",
+                    "bits": "31:16",
+                    "type": "uint",
+                    "unit": "B",
+                    "description": "Allocation Length [15:0]"
+                  },
+                  {
+                    "name": "Reserved",
+                    "bits": "15:8",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved"
+                  },
+                  {
+                    "name": "Control",
+                    "bits": "7:0",
+                    "type": "hex",
+                    "description": "Control"
+                  }
+                ]
+              },
+              {
+                "row": 7,
+                "fields": [
+                  {
+                    "name": "Reserved",
+                    "bits": "31:0",
+                    "type": "hex",
+                    "reserved": true,
+                    "description": "Reserved / Unused"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
     },
-    "0x21": {
-      "name": "RESPONSE UPIU (0x21)",
-      "description": "Device-to-Host Command Completion Response UPIU",
+    "0x02": {
+      "name": "DATA OUT UPIU (0x02)",
+      "description": "Host-to-Device Data Transfer UPIU",
       "rows": [
         {
           "row": 0,
@@ -250,14 +1903,14 @@
               "name": "DD",
               "bits": "30:30",
               "type": "uint",
-              "description": "Data Dump"
+              "description": "Data Direction"
             },
             {
               "name": "Transaction Type",
               "bits": "29:24",
               "type": "enum",
               "enums": {
-                "33": "RESPONSE (0x21)"
+                "2": "DATA_OUT (0x02)"
               },
               "description": "UPIU Transaction Code"
             },
@@ -265,7 +1918,7 @@
               "name": "Flags",
               "bits": "23:16",
               "type": "hex",
-              "description": "bit6=O (Overflow), bit5=U (Underflow)"
+              "description": "UPIU Flags"
             },
             {
               "name": "LUN",
@@ -277,7 +1930,7 @@
               "name": "Task Tag",
               "bits": "7:0",
               "type": "hex",
-              "description": "Matching Initiator Task Tag"
+              "description": "Initiator Task Tag"
             }
           ]
         },
@@ -304,25 +1957,18 @@
               "description": "Reserved"
             },
             {
-              "name": "Response",
+              "name": "Reserved",
               "bits": "15:8",
-              "type": "enum",
-              "enums": {
-                "0": "TARGET_SUCCESS (0x00)",
-                "1": "TARGET_FAILURE (0x01)"
-              },
-              "description": "UPIU Target Response"
+              "type": "hex",
+              "description": "Reserved",
+              "reserved": true
             },
             {
-              "name": "Status",
+              "name": "Reserved",
               "bits": "7:0",
-              "type": "enum",
-              "enums": {
-                "0": "GOOD (0x00)",
-                "2": "CHECK_CONDITION (0x02)",
-                "8": "BUSY (0x08)"
-              },
-              "description": "SCSI Status Code"
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
             }
           ]
         },
@@ -334,20 +1980,21 @@
               "bits": "31:24",
               "type": "uint",
               "unit": "dwords",
-              "description": "EHS length"
+              "description": "Extra Header Segment length (32-bit units)"
             },
             {
-              "name": "Device Info",
+              "name": "Reserved",
               "bits": "23:16",
               "type": "hex",
-              "description": "Device health/status info"
+              "reserved": true,
+              "description": "Reserved"
             },
             {
               "name": "Data Segment Length",
               "bits": "15:0",
               "type": "uint",
               "unit": "B",
-              "description": "Sense data segment length"
+              "description": "Data segment length in bytes"
             }
           ]
         },
@@ -355,11 +2002,10 @@
           "row": 3,
           "fields": [
             {
-              "name": "Residual Transfer Count",
+              "name": "Data Buffer Offset",
               "bits": "31:0",
-              "type": "uint",
-              "unit": "B",
-              "description": "Underrun/Overrun byte count"
+              "type": "hex",
+              "description": "Byte offset in target transfer buffer"
             }
           ]
         },
@@ -367,11 +2013,11 @@
           "row": 4,
           "fields": [
             {
-              "name": "Reserved",
+              "name": "Data Transfer Count",
               "bits": "31:0",
-              "type": "hex",
-              "reserved": true,
-              "description": "Reserved (Bytes 16..19)"
+              "type": "uint",
+              "unit": "B",
+              "description": "Payload bytes in this DATA OUT UPIU"
             }
           ]
         },
@@ -383,7 +2029,7 @@
               "bits": "31:0",
               "type": "hex",
               "reserved": true,
-              "description": "Reserved (Bytes 20..23)"
+              "description": "Reserved"
             }
           ]
         },
@@ -395,7 +2041,7 @@
               "bits": "31:0",
               "type": "hex",
               "reserved": true,
-              "description": "Reserved (Bytes 24..27)"
+              "description": "Reserved"
             }
           ]
         },
@@ -407,15 +2053,15 @@
               "bits": "31:0",
               "type": "hex",
               "reserved": true,
-              "description": "Reserved (Bytes 28..31)"
+              "description": "Reserved"
             }
           ]
         }
       ]
     },
-    "0x22": {
-      "name": "DATA IN UPIU (0x22)",
-      "description": "Device-to-Host Data Payload Transfer UPIU",
+    "0x04": {
+      "name": "TASK MGMT REQ (0x04)",
+      "description": "Host-to-Device Task Management Request UPIU",
       "rows": [
         {
           "row": 0,
@@ -430,14 +2076,14 @@
               "name": "DD",
               "bits": "30:30",
               "type": "uint",
-              "description": "Data Dump"
+              "description": "Data Direction"
             },
             {
               "name": "Transaction Type",
               "bits": "29:24",
               "type": "enum",
               "enums": {
-                "34": "DATA IN (0x22)"
+                "4": "TASK_MGMT_REQ (0x04)"
               },
               "description": "UPIU Transaction Code"
             },
@@ -445,7 +2091,7 @@
               "name": "Flags",
               "bits": "23:16",
               "type": "hex",
-              "description": "Transfer flags"
+              "description": "UPIU Flags"
             },
             {
               "name": "LUN",
@@ -457,7 +2103,7 @@
               "name": "Task Tag",
               "bits": "7:0",
               "type": "hex",
-              "description": "Task Tag"
+              "description": "Initiator Task Tag"
             }
           ]
         },
@@ -465,8 +2111,41 @@
           "row": 1,
           "fields": [
             {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
               "name": "Reserved",
-              "bits": "31:0",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Task Mgmt Function",
+              "bits": "15:8",
+              "type": "enum",
+              "description": "Task Mgmt Function",
+              "enums": {
+                "1": "ABORT_TASK",
+                "2": "ABORT_TASK_SET",
+                "4": "CLEAR_TASK_SET",
+                "8": "LOGICAL_UNIT_RESET",
+                "128": "QUERY_TASK",
+                "129": "QUERY_TASK_SET"
+              }
+            },
+            {
+              "name": "Reserved",
+              "bits": "7:0",
               "type": "hex",
               "reserved": true,
               "description": "Reserved"
@@ -481,7 +2160,7 @@
               "bits": "31:24",
               "type": "uint",
               "unit": "dwords",
-              "description": "EHS length"
+              "description": "Extra Header Segment length (32-bit units)"
             },
             {
               "name": "Reserved",
@@ -495,7 +2174,7 @@
               "bits": "15:0",
               "type": "uint",
               "unit": "B",
-              "description": "Payload bytes following this 32B header"
+              "description": "Data segment length in bytes"
             }
           ]
         },
@@ -503,10 +2182,10 @@
           "row": 3,
           "fields": [
             {
-              "name": "Data Buffer Offset",
+              "name": "Input Parameter 1",
               "bits": "31:0",
               "type": "hex",
-              "description": "Byte offset into host transfer buffer"
+              "description": "LUN / Target Task Parameter 1"
             }
           ]
         },
@@ -514,11 +2193,10 @@
           "row": 4,
           "fields": [
             {
-              "name": "Data Transfer Count",
+              "name": "Input Parameter 2",
               "bits": "31:0",
-              "type": "uint",
-              "unit": "B",
-              "description": "Number of valid data bytes in payload"
+              "type": "hex",
+              "description": "Task Tag / Parameter 2"
             }
           ]
         },
@@ -526,11 +2204,10 @@
           "row": 5,
           "fields": [
             {
-              "name": "Reserved",
+              "name": "Input Parameter 3",
               "bits": "31:0",
               "type": "hex",
-              "reserved": true,
-              "description": "Reserved"
+              "description": "Parameter 3"
             }
           ]
         },
@@ -752,6 +2429,1803 @@
               "description": "Reserved"
             }
           ]
+        }
+      ],
+      "payloadRef": {
+        "match": {
+          "offset": 12,
+          "values": [
+            1,
+            2
+          ]
+        },
+        "byByte": {
+          "offset": 13,
+          "map": {
+            "0x00": "desc-device",
+            "0x02": "desc-unit",
+            "0x05": "desc-string",
+            "0x07": "desc-geometry",
+            "0x09": "desc-health"
+          }
+        }
+      }
+    },
+    "0x20": {
+      "name": "NOP IN UPIU (0x20)",
+      "description": "Device-to-Host No-Operation In (Ping Response)",
+      "rules": [
+        {
+          "offset": 6,
+          "size": 1,
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "NOP IN Response != TARGET_SUCCESS"
+        }
+      ],
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Direction"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "32": "NOP_IN (0x20)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "UPIU Flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Response",
+              "bits": "15:8",
+              "type": "enum",
+              "enums": {
+                "0": "TARGET_SUCCESS",
+                "1": "TARGET_FAILURE"
+              },
+              "description": "UPIU Response Code"
+            },
+            {
+              "name": "Reserved",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "Extra Header Segment length (32-bit units)"
+            },
+            {
+              "name": "Device Info",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": false,
+              "description": "Device Information"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Data segment length in bytes"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ]
+    },
+    "0x21": {
+      "name": "RESPONSE UPIU (0x21)",
+      "description": "Device-to-Host Command Completion Response UPIU",
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Dump"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "33": "RESPONSE (0x21)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "bit6=O (Overflow), bit5=U (Underflow)"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Matching Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Response",
+              "bits": "15:8",
+              "type": "enum",
+              "enums": {
+                "0": "TARGET_SUCCESS (0x00)",
+                "1": "TARGET_FAILURE (0x01)"
+              },
+              "description": "UPIU Target Response"
+            },
+            {
+              "name": "Status",
+              "bits": "7:0",
+              "type": "enum",
+              "enums": {
+                "0": "GOOD (0x00)",
+                "2": "CHECK_CONDITION (0x02)",
+                "8": "BUSY (0x08)"
+              },
+              "description": "SCSI Status Code"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "EHS length"
+            },
+            {
+              "name": "Device Info",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "Device health/status info"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Sense data segment length"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Residual Transfer Count",
+              "bits": "31:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Underrun/Overrun byte count"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved (Bytes 16..19)"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved (Bytes 20..23)"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved (Bytes 24..27)"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved (Bytes 28..31)"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "offset": 6,
+          "size": 1,
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "UPIU Response != TARGET_SUCCESS"
+        },
+        {
+          "offset": 7,
+          "size": 1,
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "SCSI Status != GOOD"
+        }
+      ],
+      "payloadRef": "sense-data"
+    },
+    "0x22": {
+      "name": "DATA IN UPIU (0x22)",
+      "description": "Device-to-Host Data Payload Transfer UPIU",
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Dump"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "34": "DATA IN (0x22)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "Transfer flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "EHS length"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Payload bytes following this 32B header"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Data Buffer Offset",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "Byte offset into host transfer buffer"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Data Transfer Count",
+              "bits": "31:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Number of valid data bytes in payload"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ]
+    },
+    "0x24": {
+      "name": "TASK MGMT RESP (0x24)",
+      "description": "Device-to-Host Task Management Response UPIU",
+      "rules": [
+        {
+          "offset": 6,
+          "size": 1,
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "Task Mgmt Response != TARGET_SUCCESS"
+        }
+      ],
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Direction"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "36": "TASK_MGMT_RESP (0x24)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "UPIU Flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Response",
+              "bits": "15:8",
+              "type": "enum",
+              "enums": {
+                "0": "TARGET_SUCCESS",
+                "1": "TARGET_FAILURE"
+              },
+              "description": "UPIU Response Code"
+            },
+            {
+              "name": "Reserved",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "Extra Header Segment length (32-bit units)"
+            },
+            {
+              "name": "Device Info",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": false,
+              "description": "Device Information"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Data segment length in bytes"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Output Parameter 1",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "Task Management Service Response"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Output Parameter 2",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "Additional Service Response Info"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ]
+    },
+    "0x31": {
+      "name": "READY TO TRANSFER (0x31)",
+      "description": "Device-to-Host RTT Flow Control for DATA OUT",
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Direction"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "49": "RTT (0x31)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "UPIU Flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Response",
+              "bits": "15:8",
+              "type": "enum",
+              "enums": {
+                "0": "TARGET_SUCCESS",
+                "1": "TARGET_FAILURE"
+              },
+              "description": "UPIU Response Code"
+            },
+            {
+              "name": "Reserved",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "Extra Header Segment length (32-bit units)"
+            },
+            {
+              "name": "Device Info",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": false,
+              "description": "Device Information"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Data segment length in bytes"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Data Buffer Offset",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "Requested byte offset for DATA OUT"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Data Transfer Count",
+              "bits": "31:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Requested transfer byte count"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ]
+    },
+    "0x36": {
+      "name": "QUERY RESPONSE (0x36)",
+      "description": "Device-to-Host Query Response UPIU (Descriptors / Attributes / Flags)",
+      "rules": [
+        {
+          "offset": 6,
+          "size": 1,
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "Query UPIU Response != TARGET_SUCCESS"
+        },
+        {
+          "offset": 7,
+          "size": 1,
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "Query Response Code != SUCCESS"
+        }
+      ],
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Direction"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "54": "QUERY_RESP (0x36)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "UPIU Flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Response",
+              "bits": "15:8",
+              "type": "enum",
+              "enums": {
+                "0": "TARGET_SUCCESS",
+                "1": "TARGET_FAILURE"
+              },
+              "description": "UPIU Response Code"
+            },
+            {
+              "name": "Query Response",
+              "bits": "7:0",
+              "type": "enum",
+              "description": "Query Response Code",
+              "enums": {
+                "0": "SUCCESS",
+                "246": "PARAM_NOT_READABLE (0xF6)",
+                "247": "PARAM_NOT_WRITEABLE (0xF7)",
+                "248": "PARAM_ALREADY_WRITTEN (0xF8)",
+                "249": "INVALID_LENGTH (0xF9)",
+                "250": "INVALID_VALUE (0xFA)",
+                "251": "INVALID_SELECTOR (0xFB)",
+                "252": "INVALID_INDEX (0xFC)",
+                "253": "INVALID_IDN (0xFD)",
+                "254": "INVALID_OPCODE (0xFE)",
+                "255": "GENERAL_FAILURE (0xFF)"
+              }
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "Extra Header Segment length (32-bit units)"
+            },
+            {
+              "name": "Device Info",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": false,
+              "description": "Device Information"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Data segment length in bytes"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "Opcode",
+              "bits": "31:24",
+              "type": "enum",
+              "enums": {
+                "1": "READ_DESC",
+                "2": "WRITE_DESC",
+                "3": "READ_ATTR",
+                "4": "WRITE_ATTR",
+                "5": "READ_FLAG",
+                "6": "SET_FLAG",
+                "7": "CLEAR_FLAG",
+                "8": "TOGGLE_FLAG"
+              },
+              "description": "Query Opcode"
+            },
+            {
+              "name": "IDN",
+              "bits": "23:16",
+              "type": "enum",
+              "enums": {
+                "0": "DEVICE_DESC",
+                "1": "CONFIG_DESC",
+                "2": "UNIT_DESC",
+                "4": "INTERCONNECT_DESC",
+                "5": "STRING_DESC",
+                "7": "GEOMETRY_DESC",
+                "8": "POWER_DESC",
+                "9": "HEALTH_DESC"
+              },
+              "description": "Descriptor / Attribute / Flag IDN"
+            },
+            {
+              "name": "Index",
+              "bits": "15:8",
+              "type": "uint",
+              "description": "Descriptor Index"
+            },
+            {
+              "name": "Selector",
+              "bits": "7:0",
+              "type": "uint",
+              "description": "Selector"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Returned Data Segment Length"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Value / Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "description": "Attribute / Flag Value"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ],
+      "payloadRef": {
+        "match": {
+          "offset": 12,
+          "values": [
+            1,
+            2
+          ]
+        },
+        "byByte": {
+          "offset": 13,
+          "map": {
+            "0x00": "desc-device",
+            "0x02": "desc-unit",
+            "0x05": "desc-string",
+            "0x07": "desc-geometry",
+            "0x09": "desc-health"
+          }
+        }
+      }
+    },
+    "0x3F": {
+      "name": "REJECT UPIU (0x3F)",
+      "description": "Device-to-Host Protocol Reject UPIU",
+      "rules": [
+        {
+          "offset": 0,
+          "size": 1,
+          "op": "ne",
+          "value": 255,
+          "severity": "error",
+          "message": "REJECT UPIU received from UFS target"
+        }
+      ],
+      "rows": [
+        {
+          "row": 0,
+          "fields": [
+            {
+              "name": "HD",
+              "bits": "31:31",
+              "type": "uint",
+              "description": "Header Dump"
+            },
+            {
+              "name": "DD",
+              "bits": "30:30",
+              "type": "uint",
+              "description": "Data Direction"
+            },
+            {
+              "name": "Transaction Type",
+              "bits": "29:24",
+              "type": "enum",
+              "enums": {
+                "63": "REJECT (0x3F)"
+              },
+              "description": "UPIU Transaction Code"
+            },
+            {
+              "name": "Flags",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "UPIU Flags"
+            },
+            {
+              "name": "LUN",
+              "bits": "15:8",
+              "type": "hex",
+              "description": "Logical Unit Number"
+            },
+            {
+              "name": "Task Tag",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Initiator Task Tag"
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "fields": [
+            {
+              "name": "IID",
+              "bits": "31:28",
+              "type": "uint",
+              "description": "Initiator ID"
+            },
+            {
+              "name": "Cmd Set Type",
+              "bits": "27:24",
+              "type": "uint",
+              "description": "Command Set Type"
+            },
+            {
+              "name": "Reserved",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            },
+            {
+              "name": "Response",
+              "bits": "15:8",
+              "type": "enum",
+              "enums": {
+                "0": "TARGET_SUCCESS",
+                "1": "TARGET_FAILURE"
+              },
+              "description": "UPIU Response Code"
+            },
+            {
+              "name": "Reserved",
+              "bits": "7:0",
+              "type": "hex",
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 2,
+          "fields": [
+            {
+              "name": "Total EHS Len",
+              "bits": "31:24",
+              "type": "uint",
+              "unit": "dwords",
+              "description": "Extra Header Segment length (32-bit units)"
+            },
+            {
+              "name": "Device Info",
+              "bits": "23:16",
+              "type": "hex",
+              "reserved": false,
+              "description": "Device Information"
+            },
+            {
+              "name": "Data Segment Length",
+              "bits": "15:0",
+              "type": "uint",
+              "unit": "B",
+              "description": "Data segment length in bytes"
+            }
+          ]
+        },
+        {
+          "row": 3,
+          "fields": [
+            {
+              "name": "HdrSts",
+              "bits": "31:24",
+              "type": "hex",
+              "description": "Basic Header Status"
+            },
+            {
+              "name": "E2ESts",
+              "bits": "23:16",
+              "type": "hex",
+              "description": "End-to-End Status"
+            },
+            {
+              "name": "Reserved",
+              "bits": "15:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 4,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 5,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 6,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        },
+        {
+          "row": 7,
+          "fields": [
+            {
+              "name": "Reserved",
+              "bits": "31:0",
+              "type": "hex",
+              "reserved": true,
+              "description": "Reserved"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "payloadSchemas": {
+    "sense-data": {
+      "name": "SCSI Sense Data (UFS RESPONSE)",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "Sense Data Length",
+          "offset": 0,
+          "size": 2,
+          "type": "uint",
+          "unit": "B",
+          "description": "UFS Sense Data Length"
+        },
+        {
+          "name": "Response Code",
+          "offset": 2,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "112": "CURRENT_FIXED (0x70)",
+            "113": "DEFERRED_FIXED (0x71)",
+            "114": "CURRENT_DESC (0x72)",
+            "115": "DEFERRED_DESC (0x73)"
+          },
+          "description": "SCSI Sense Response Code"
+        },
+        {
+          "name": "Sense Key",
+          "offset": 4,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "NO_SENSE",
+            "1": "RECOVERED_ERROR",
+            "2": "NOT_READY",
+            "3": "MEDIUM_ERROR",
+            "4": "HARDWARE_ERROR",
+            "5": "ILLEGAL_REQUEST",
+            "6": "UNIT_ATTENTION",
+            "7": "DATA_PROTECT",
+            "11": "ABORTED_COMMAND"
+          },
+          "description": "SCSI Sense Key (bits 3:0)"
+        },
+        {
+          "name": "Information",
+          "offset": 5,
+          "size": 4,
+          "type": "hex",
+          "description": "Command-specific / LBA information"
+        },
+        {
+          "name": "Addl Sense Length",
+          "offset": 9,
+          "size": 1,
+          "type": "uint",
+          "unit": "B",
+          "description": "Additional Sense Length"
+        },
+        {
+          "name": "ASC",
+          "offset": 14,
+          "size": 1,
+          "type": "hex",
+          "description": "Additional Sense Code"
+        },
+        {
+          "name": "ASCQ",
+          "offset": 15,
+          "size": 1,
+          "type": "hex",
+          "description": "Additional Sense Code Qualifier"
+        }
+      ]
+    },
+    "desc-device": {
+      "name": "UFS Device Descriptor (IDN 0x00)",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "bLength",
+          "offset": 0,
+          "size": 1,
+          "type": "uint",
+          "unit": "B",
+          "description": "Descriptor Length"
+        },
+        {
+          "name": "bDescriptorIDN",
+          "offset": 1,
+          "size": 1,
+          "type": "hex",
+          "description": "0x00 = Device Descriptor"
+        },
+        {
+          "name": "bDevice",
+          "offset": 2,
+          "size": 1,
+          "type": "hex",
+          "description": "Device Type (0x00 = UFS Device)"
+        },
+        {
+          "name": "bDeviceClass",
+          "offset": 3,
+          "size": 1,
+          "type": "hex",
+          "description": "Device Class (0x00 = Mass Storage)"
+        },
+        {
+          "name": "bNumberLU",
+          "offset": 6,
+          "size": 1,
+          "type": "uint",
+          "description": "Number of Active Logical Units"
+        },
+        {
+          "name": "bNumberWLU",
+          "offset": 7,
+          "size": 1,
+          "type": "uint",
+          "description": "Number of Well-Known LUs"
+        },
+        {
+          "name": "bBootEnable",
+          "offset": 8,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "DISABLED",
+            "1": "ENABLED"
+          },
+          "description": "Boot Feature Enable"
+        },
+        {
+          "name": "bInitPowerMode",
+          "offset": 10,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "UFS_IDLE",
+            "1": "UFS_ACTIVE"
+          },
+          "description": "Initial Power Mode"
+        },
+        {
+          "name": "wSpecVersion",
+          "offset": 16,
+          "size": 2,
+          "type": "hex",
+          "description": "UFS Specification Version (e.g. 0x0310 = UFS 3.1)"
+        },
+        {
+          "name": "wManufactureDate",
+          "offset": 18,
+          "size": 2,
+          "type": "hex",
+          "description": "Manufacture Date (MMYY)"
+        },
+        {
+          "name": "iManufacturerName",
+          "offset": 20,
+          "size": 1,
+          "type": "uint",
+          "description": "String Index for Manufacturer"
+        },
+        {
+          "name": "iProductName",
+          "offset": 21,
+          "size": 1,
+          "type": "uint",
+          "description": "String Index for Product Name"
+        },
+        {
+          "name": "wOemID",
+          "offset": 24,
+          "size": 2,
+          "type": "hex",
+          "description": "OEM ID"
+        },
+        {
+          "name": "wManufacturerID",
+          "offset": 26,
+          "size": 2,
+          "type": "hex",
+          "description": "JEDEC Manufacturer ID"
+        },
+        {
+          "name": "dExtendedUFSFeatures",
+          "offset": 79,
+          "size": 4,
+          "type": "hex",
+          "description": "Extended UFS Features Support"
+        }
+      ]
+    },
+    "desc-unit": {
+      "name": "UFS Unit Descriptor (IDN 0x02)",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "bLength",
+          "offset": 0,
+          "size": 1,
+          "type": "uint",
+          "unit": "B",
+          "description": "Descriptor Length"
+        },
+        {
+          "name": "bDescriptorIDN",
+          "offset": 1,
+          "size": 1,
+          "type": "hex",
+          "description": "0x02 = Unit Descriptor"
+        },
+        {
+          "name": "bUnitIndex",
+          "offset": 2,
+          "size": 1,
+          "type": "uint",
+          "description": "LUN Index"
+        },
+        {
+          "name": "bLUEnable",
+          "offset": 3,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "DISABLED",
+            "1": "ENABLED"
+          },
+          "description": "Logical Unit Enable"
+        },
+        {
+          "name": "bBootLunID",
+          "offset": 4,
+          "size": 1,
+          "type": "uint",
+          "description": "Boot LUN ID"
+        },
+        {
+          "name": "bLUWriteProtect",
+          "offset": 5,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "NONE",
+            "1": "POWER_ON_WP",
+            "2": "PERMANENT_WP"
+          },
+          "description": "Write Protection"
+        },
+        {
+          "name": "bLUQueueDepth",
+          "offset": 6,
+          "size": 1,
+          "type": "uint",
+          "description": "LU Queue Depth"
+        },
+        {
+          "name": "bLogicalBlockSize",
+          "offset": 10,
+          "size": 1,
+          "type": "uint",
+          "description": "Block Size = 2^N bytes (e.g. 12 = 4096 B)"
+        },
+        {
+          "name": "qLogicalBlockCount",
+          "offset": 11,
+          "size": 8,
+          "type": "uint",
+          "description": "Total Logical Blocks"
+        },
+        {
+          "name": "dEraseBlockSize",
+          "offset": 19,
+          "size": 4,
+          "type": "uint",
+          "description": "Erase Block Size"
+        },
+        {
+          "name": "bProvisioningType",
+          "offset": 23,
+          "size": 1,
+          "type": "uint",
+          "description": "Thin Provisioning Type"
+        }
+      ]
+    },
+    "desc-string": {
+      "name": "UFS String Descriptor (IDN 0x05)",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "bLength",
+          "offset": 0,
+          "size": 1,
+          "type": "uint",
+          "unit": "B",
+          "description": "Descriptor Length"
+        },
+        {
+          "name": "bDescriptorIDN",
+          "offset": 1,
+          "size": 1,
+          "type": "hex",
+          "description": "0x05 = String Descriptor"
+        },
+        {
+          "name": "ucString",
+          "offset": 2,
+          "size": 64,
+          "type": "utf16be",
+          "description": "UTF-16BE Unicode String"
+        }
+      ]
+    },
+    "desc-geometry": {
+      "name": "UFS Geometry Descriptor (IDN 0x07)",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "bLength",
+          "offset": 0,
+          "size": 1,
+          "type": "uint",
+          "unit": "B",
+          "description": "Descriptor Length"
+        },
+        {
+          "name": "bDescriptorIDN",
+          "offset": 1,
+          "size": 1,
+          "type": "hex",
+          "description": "0x07 = Geometry Descriptor"
+        },
+        {
+          "name": "bMediaTechnology",
+          "offset": 2,
+          "size": 1,
+          "type": "hex",
+          "description": "Media Technology"
+        },
+        {
+          "name": "qTotalRawDeviceCap",
+          "offset": 4,
+          "size": 8,
+          "type": "uint",
+          "description": "Total Raw Capacity (512B units)"
+        },
+        {
+          "name": "bMaxNumberLU",
+          "offset": 12,
+          "size": 1,
+          "type": "uint",
+          "description": "Max Supported LUs"
+        },
+        {
+          "name": "dSegmentSize",
+          "offset": 13,
+          "size": 4,
+          "type": "uint",
+          "description": "Segment Size (512B units)"
+        },
+        {
+          "name": "bAllocationUnitSize",
+          "offset": 17,
+          "size": 1,
+          "type": "uint",
+          "description": "Allocation Unit Size (segments)"
+        }
+      ]
+    },
+    "desc-health": {
+      "name": "UFS Health Descriptor (IDN 0x09)",
+      "endianness": "big",
+      "fields": [
+        {
+          "name": "bLength",
+          "offset": 0,
+          "size": 1,
+          "type": "uint",
+          "unit": "B",
+          "description": "Descriptor Length"
+        },
+        {
+          "name": "bDescriptorIDN",
+          "offset": 1,
+          "size": 1,
+          "type": "hex",
+          "description": "0x09 = Health Descriptor"
+        },
+        {
+          "name": "bPreEOLInfo",
+          "offset": 2,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "1": "NORMAL (<80%)",
+            "2": "WARNING (80%)",
+            "3": "URGENT (90%)"
+          },
+          "description": "Pre-EOL Information"
+        },
+        {
+          "name": "bDeviceLifeTimeEstA",
+          "offset": 3,
+          "size": 1,
+          "type": "hex",
+          "description": "Device Life Time Estimation A (0x01..0x0B)"
+        },
+        {
+          "name": "bDeviceLifeTimeEstB",
+          "offset": 4,
+          "size": 1,
+          "type": "hex",
+          "description": "Device Life Time Estimation B (0x01..0x0B)"
         }
       ]
     }

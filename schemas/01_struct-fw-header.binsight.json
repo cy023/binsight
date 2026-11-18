@@ -1,7 +1,7 @@
 {
   "id": "builtin-struct-fw-header",
   "schemaVersion": "1.0",
-  "mode": "struct-list",
+  "mode": "struct-view",
   "name": "FW_IMAGE_HEADER (Struct List)",
   "description": "Fixed Firmware Image Header & Boot Descriptor Struct",
   "endianness": "little",

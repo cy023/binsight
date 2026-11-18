@@ -1,0 +1,181 @@
+{
+  "id": "builtin-trace-ufs-ringbuf",
+  "schemaVersion": "1.0",
+  "mode": "record-trace",
+  "name": "UFS_FW_RINGBUF (64B Continuous)",
+  "description": "Continuous 64-byte firmware ring-buffer trace with link events, fault alerts, and embedded UFS UPIU",
+  "endianness": "little",
+  "blockSize": 0,
+  "entrySize": 64,
+  "discriminator": {
+    "offset": 0,
+    "size": 1,
+    "mask": "0xFF"
+  },
+  "variants": {
+    "0x01": {
+      "name": "LINK_STATE",
+      "summaryFields": [
+        "TIMESTAMP_US",
+        "GEAR",
+        "LANES"
+      ],
+      "fields": [
+        {
+          "name": "EVENT_TYPE",
+          "offset": 0,
+          "size": 1,
+          "type": "hex",
+          "description": "0x01 = LINK_STATE"
+        },
+        {
+          "name": "GEAR",
+          "offset": 1,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "1": "HS-G1",
+            "2": "HS-G2",
+            "3": "HS-G3",
+            "4": "HS-G4",
+            "5": "HS-G5"
+          },
+          "description": "UFS UniPro Gear"
+        },
+        {
+          "name": "LANES",
+          "offset": 2,
+          "size": 1,
+          "type": "uint",
+          "description": "Active TX/RX Lanes"
+        },
+        {
+          "name": "PWR_MODE",
+          "offset": 3,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "1": "FAST",
+            "2": "SLOW",
+            "17": "FASTAUTO"
+          },
+          "description": "Power Mode"
+        },
+        {
+          "name": "TIMESTAMP_US",
+          "offset": 8,
+          "size": 8,
+          "type": "uint",
+          "unit": "us",
+          "description": "Timestamp (us)"
+        }
+      ]
+    },
+    "0x02": {
+      "name": "FW_FAULT",
+      "summaryFields": [
+        "TIMESTAMP_US",
+        "ERR_CODE"
+      ],
+      "rules": [
+        {
+          "field": "ERR_CODE",
+          "op": "ne",
+          "value": 0,
+          "severity": "error",
+          "message": "UFS Controller Hardware/Firmware Fault"
+        }
+      ],
+      "fields": [
+        {
+          "name": "EVENT_TYPE",
+          "offset": 0,
+          "size": 1,
+          "type": "hex",
+          "description": "0x02 = FW_FAULT"
+        },
+        {
+          "name": "SUBSYS",
+          "offset": 1,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "1": "UNIPRO",
+            "2": "UTP",
+            "3": "CRYPTO"
+          },
+          "description": "Subsystem"
+        },
+        {
+          "name": "ERR_CODE",
+          "offset": 4,
+          "size": 4,
+          "type": "hex",
+          "description": "Hardware Error Code"
+        },
+        {
+          "name": "TIMESTAMP_US",
+          "offset": 8,
+          "size": 8,
+          "type": "uint",
+          "unit": "us",
+          "description": "Timestamp (us)"
+        },
+        {
+          "name": "NOTE",
+          "offset": 16,
+          "size": 16,
+          "type": "ascii",
+          "description": "Diagnostic Tag"
+        }
+      ]
+    },
+    "0x04": {
+      "name": "UFS_UPIU_EVENT",
+      "summaryFields": [
+        "TIMESTAMP_US",
+        "DIR"
+      ],
+      "embeddedProtocol": {
+        "schemaId": "builtin-protocol-ufs-upiu",
+        "offset": 16,
+        "length": 32
+      },
+      "fields": [
+        {
+          "name": "EVENT_TYPE",
+          "offset": 0,
+          "size": 1,
+          "type": "hex",
+          "description": "0x04 = UFS_UPIU_EVENT"
+        },
+        {
+          "name": "DIR",
+          "offset": 1,
+          "size": 1,
+          "type": "enum",
+          "enums": {
+            "0": "HOST_TO_DEV",
+            "1": "DEV_TO_HOST"
+          },
+          "description": "Direction"
+        },
+        {
+          "name": "SLOT",
+          "offset": 2,
+          "size": 2,
+          "type": "uint",
+          "description": "UTR Slot"
+        },
+        {
+          "name": "TIMESTAMP_US",
+          "offset": 8,
+          "size": 8,
+          "type": "uint",
+          "unit": "us",
+          "description": "Timestamp (us)"
+        }
+      ]
+    }
+  }
+}

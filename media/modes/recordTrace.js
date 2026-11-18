@@ -17,7 +17,9 @@ const {
   getUiState,
   patchUiState,
   restoreSelectOption,
-  escapeHtml
+  escapeHtml,
+  resolveProtocolPacketSpec,
+  renderEmbeddedProtocolDiagram
 } = B;
 
 const rsSchemaSelect = document.getElementById('rs-schema-select');
@@ -31,9 +33,9 @@ let repeatPage = 0;
 let selectedRepeatIdx = -1;
 let pendingSelectRepeatIdx = null;
 
-function populateRepeatStructControls() {
+function populateRecordTraceControls() {
   if (!rsSchemaSelect) return;
-  populateModeSchemaSelect(rsSchemaSelect, 'repeat-struct');
+  populateModeSchemaSelect(rsSchemaSelect, 'record-trace');
   populateVariantFilterSelect(rsTypeFilter, rsSchemaSelect?.value, 'All Types');
 }
 
@@ -74,7 +76,7 @@ function renderRepeatEntryDetail(ent, sch) {
                      return `
           <tr>
             <td class="k" style="width:44%;"><span class="jump-offset-link" data-jump-file-offset="${
-                         fAbsOff}" data-jump-length="${f.size || 1}" title="Jump to Hex Dump (@${
+                         fAbsOff}" data-jump-length="${f.size || 1}" title="Jump to Hex Editor (@${
                          toHex(fAbsOff, 6)})">+${toHex(f.offset, 2)}</span> <strong>${escapeHtml(f.name)}</strong></td>
             <td class="v">${escapeHtml(val.decoded)} <span style="font-size:10.5px;color:var(--muted);">(${
                          escapeHtml(val.hex)})</span></td>
@@ -82,27 +84,38 @@ function renderRepeatEntryDetail(ent, sch) {
                    })
                    .join('');
 
+  let embeddedHtml = '';
+  if (variant?.embeddedProtocol && Array.isArray(ent.bytes)) {
+    const ep = variant.embeddedProtocol;
+    const protoSch = getSchemaById(ep.schemaId);
+    const slice = ent.bytes.slice(ep.offset, ep.offset + ep.length);
+    if (protoSch && slice.length > 0) {
+      embeddedHtml = renderEmbeddedProtocolDiagram(slice, ent.fileOffset + ep.offset, protoSch);
+    }
+  }
+
   detailWrap.innerHTML = `
       <div class="term-box-hdr" style="display:flex;justify-content:space-between;align-items:center;">
         <span>#${ent.index} ${escapeHtml(ent.variantName)} (<span class="jump-offset-link" data-jump-file-offset="${
-      ent.fileOffset}" data-jump-length="${sch.entrySize || 1}" title="Jump to Hex Dump (@${offHex})">@${
+      ent.fileOffset}" data-jump-length="${sch.entrySize || 1}" title="Jump to Hex Editor (@${offHex})">@${
       offHex}</span>)</span>
         <button id="rs-close-detail" class="btn" style="padding:1px 6px;" title="Close side panel">✕</button>
       </div>
       ${renderRuleHitsBox(ent.ruleHits)}
-      <table class="kv-table">${rows}</table>`;
+      <table class="kv-table">${rows}</table>
+      ${embeddedHtml}`;
 }
 
-function renderRepeatStructView() {
+function renderRecordTraceView() {
   const tableWrap = document.getElementById('rs-table-wrap');
   const detailWrap = document.getElementById('rs-detail-wrap');
   const geoBadge = document.getElementById('rs-geometry-badge');
   if (!tableWrap || !rsSchemaSelect) return;
 
   const sch = getSchemaById(rsSchemaSelect.value);
-  if (!repeatResult || sch.mode !== 'repeat-struct') {
+  if (!repeatResult || sch.mode !== 'record-trace') {
     if (geoBadge) geoBadge.textContent = '';
-    tableWrap.innerHTML = '<p class="hint">Select a Repeat Struct schema to inspect entries.</p>';
+    tableWrap.innerHTML = '<p class="hint">Select a Record Trace schema to inspect entries.</p>';
     return;
   }
 
@@ -145,15 +158,22 @@ function renderRepeatStructView() {
   const rowsHtml = entries
                        .map((ent, idx) => {
                          const variant = (sch.variants && sch.variants[ent.typeHex]) || sch.defaultVariant;
-                         const summaryParts = (variant?.summaryFields || [])
-                                                  .map((fn) => {
-                                                    const fld = (variant.fields || []).find((f) => f.name === fn);
-                                                    if (!fld) return '';
-                                                    const val = decodeEntryFieldValue(ent.bytes, fld, sch.endianness);
-                                                    return `${fn}=${val.decoded}`;
-                                                  })
-                                                  .filter(Boolean)
-                                                  .join(' · ');
+                         const summaryList = (variant?.summaryFields || [])
+                                                 .map((fn) => {
+                                                   const fld = (variant.fields || []).find((f) => f.name === fn);
+                                                   if (!fld) return '';
+                                                   const val = decodeEntryFieldValue(ent.bytes, fld, sch.endianness);
+                                                   return `${fn}=${val.decoded}`;
+                                                 })
+                                                 .filter(Boolean);
+                         if (variant?.embeddedProtocol && Array.isArray(ent.bytes)) {
+                           const ep = variant.embeddedProtocol;
+                           const protoSch = getSchemaById(ep.schemaId);
+                           const spec =
+                               protoSch ? resolveProtocolPacketSpec(ent.bytes.slice(ep.offset, ep.offset + ep.length), protoSch) : null;
+                           if (spec) summaryList.push(`UPIU=${spec.title}`);
+                         }
+                         const summaryParts = summaryList.join(' · ');
 
                          const offHex = toHex(ent.fileOffset, 6);
                          const locStr = sch.blockSize > 0 ? `B${ent.blockIndex}:${ent.slotIndex}` : `#${ent.index}`;
@@ -165,7 +185,7 @@ function renderRepeatStructView() {
           <tr class="entry-row ${selCls} ${skipCls} ${sevCls}" data-rs-idx="${idx}">
             <td class="bf-mono">${locStr}</td>
             <td class="bf-mono"><span class="jump-offset-link" data-jump-file-offset="${
-                             ent.fileOffset}" data-jump-length="${sch.entrySize || 1}" title="Jump to Hex Dump (@${
+                             ent.fileOffset}" data-jump-length="${sch.entrySize || 1}" title="Jump to Hex Editor (@${
                              offHex})">${offHex}</span></td>
             <td class="bf-mono"><span class="enum-badge">${escapeHtml(ent.typeHex)}</span>${
                              escapeHtml(ent.variantName)}</td>
@@ -207,7 +227,7 @@ function jumpToRepeatAnomaly(dir) {
   const idxInPage = target.matchIdx % pSize;
   if (targetPage === (repeatResult.page || 0)) {
     selectedRepeatIdx = idxInPage;
-    renderRepeatStructView();
+    renderRecordTraceView();
     document.querySelector(`#rs-table-wrap [data-rs-idx="${selectedRepeatIdx}"]`)?.scrollIntoView({block: 'nearest'});
   } else {
     pendingSelectRepeatIdx = idxInPage;
@@ -226,7 +246,9 @@ function saveRepeatState() {
   });
 }
 
-B.modes.repeatStruct = {
+let needsWorkingRefresh = false;
+
+B.modes.recordTrace = {
   init() {
     document.getElementById('rs-table-wrap')?.addEventListener('click', (e) => {
       if (e.target.closest('[data-jump-file-offset]')) return;
@@ -234,13 +256,13 @@ B.modes.repeatStruct = {
       if (row && repeatResult) {
         const clicked = Number(row.dataset.rsIdx);
         selectedRepeatIdx = selectedRepeatIdx === clicked ? -1 : clicked;
-        renderRepeatStructView();
+        renderRecordTraceView();
       }
     });
     document.getElementById('rs-detail-wrap')?.addEventListener('click', (e) => {
       if (e.target.closest('#rs-close-detail')) {
         selectedRepeatIdx = -1;
-        renderRepeatStructView();
+        renderRecordTraceView();
       }
     });
     rsSchemaSelect?.addEventListener('change', () => {
@@ -274,7 +296,7 @@ B.modes.repeatStruct = {
     document.getElementById('rs-next-page')?.addEventListener('click', () => requestRepeatQuery(repeatPage + 1));
     bindEditSchemaButton('rs-edit-json-btn', rsSchemaSelect, 'repeat_struct');
     initSplitResizer('rs-resizer', '--rs-detail-w', true, 240, 720);
-    populateRepeatStructControls();
+    populateRecordTraceControls();
 
     const ui = getUiState();
     let needsQuery = false;
@@ -301,7 +323,7 @@ B.modes.repeatStruct = {
       rsBlockInput.value = ui.rsBlockInput;
       needsQuery = true;
     }
-    renderRepeatStructView();
+    renderRecordTraceView();
     if (needsQuery) requestRepeatQuery(0);
   },
   handleKeyDown(e) {
@@ -315,17 +337,31 @@ B.modes.repeatStruct = {
       selectedRepeatIdx =
           Math.max(0, Math.min(entries.length - 1, selectedRepeatIdx + (e.key === 'ArrowDown' ? 1 : -1)));
     }
-    renderRepeatStructView();
+    renderRecordTraceView();
     document.querySelector(`#rs-table-wrap [data-rs-idx="${selectedRepeatIdx}"]`)?.scrollIntoView({block: 'nearest'});
   },
+  onActivate() {
+    if (needsWorkingRefresh) {
+      needsWorkingRefresh = false;
+      requestRepeatQuery(repeatPage);
+    }
+  },
   handleMessage(msg) {
+    if (msg.type === 'workingCopySynced') {
+      needsWorkingRefresh = true;
+      if (B.getActiveTabId?.() === 'tab-record-trace') {
+        needsWorkingRefresh = false;
+        requestRepeatQuery(repeatPage);
+      }
+      return false;
+    }
     if (msg.type === 'repeatEntriesResult' && msg.result) {
       repeatResult = msg.result;
       if (pendingSelectRepeatIdx !== null) {
         selectedRepeatIdx = pendingSelectRepeatIdx;
         pendingSelectRepeatIdx = null;
       }
-      renderRepeatStructView();
+      renderRecordTraceView();
       if (selectedRepeatIdx >= 0) {
         document.querySelector(`#rs-table-wrap [data-rs-idx="${selectedRepeatIdx}"]`)?.scrollIntoView({
           block: 'nearest'

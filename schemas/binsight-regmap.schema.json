@@ -12,6 +12,12 @@
       "type": "string",
       "default": "1.1"
     },
+    "mode": {
+      "type": "string",
+      "enum": ["registers", "struct-view", "record-trace", "protocol-analyze"],
+      "default": "registers",
+      "description": "Inspection mode for this schema"
+    },
     "name": {
       "type": "string",
       "description": "IP Block or Struct name (e.g. PCIE_PHY, DMA_ENGINE)"
@@ -152,6 +158,10 @@
               "qFormat": {
                 "type": "string",
                 "pattern": "^U?Q\\d+\\.\\d+$"
+              },
+              "formula": {
+                "type": "string",
+                "description": "Custom arithmetic/bitwise expression using variable x (e.g. 'x * 4096' or '(x * 0.1) - 40')"
               },
               "description": {
                 "type": "string"

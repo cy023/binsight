@@ -6,28 +6,28 @@
       "label": "SYS_CTRL_MAIN",
       "startOffset": "0x0000",
       "hwBaseAddress": "0x40000000",
-      "schema": "./sys_ctrl.binsight.json",
+      "schema": "../schemas/04_sys-ctrl.binsight.json",
       "endianness": "little"
     },
     {
       "label": "PCIE_PHY_LANE0",
       "startOffset": "0x0100",
       "hwBaseAddress": "0x40010000",
-      "schema": "./pcie_phy.binsight.json",
+      "schema": "../schemas/05_pcie-phy.binsight.json",
       "endianness": "little"
     },
     {
       "label": "PCIE_PHY_LANE1",
       "startOffset": "0x0140",
       "hwBaseAddress": "0x40011000",
-      "schema": "./pcie_phy.binsight.json",
+      "schema": "../schemas/05_pcie-phy.binsight.json",
       "endianness": "little"
     },
     {
       "label": "DMA_ENGINE_0",
       "startOffset": "0x0200",
       "hwBaseAddress": "0x40020000",
-      "schema": "./dma_engine.binsight.json",
+      "schema": "../schemas/06_dma-engine.binsight.json",
       "endianness": "little"
     }
   ]
